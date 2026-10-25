@@ -38,8 +38,6 @@ Every action:
 
 - `action.yml` passes `github.repository`, the pull request's number and the inputs in `env:`,
   never as `${{ }}` in `run:`, which zizmor's template-injection audit refuses.
-- An action's pull request changes its own directory and its own `tests/NAME.sh` alone. A change
-  to `lib/` or `tests/` is a pull request of its own.
 
 The checks alone:
 
@@ -67,17 +65,12 @@ The checks alone:
 ## Commits and pull requests
 
 - [atomic-commits](https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md)
-  sets how commits and pull requests are cut: 100 changed lines a commit, 300 a pull request.
-- The header is a Conventional Commits header. Its scope is the action changed, as
-  `feat(banned-terms): ...`, or `lib`. A change across them, or to the repository, takes none.
-- A pull request's title is a Conventional Commits header too. Its description has `## Problem`,
-  then `## Changes`, `## Stack` where stacked, and a `BREAKING CHANGE:` footer where the title has
-  `!`: 200 words at most.
-- No vague name or filler of the list that banned-terms checks goes in a name, a comment, a doc or
-  a commit message.
+  sets how commits and pull requests are cut and written.
+- [writing](https://github.com/zadykian/skills/blob/main/skills/writing/SKILL.md) sets the prose.
+- [banned-terms](https://github.com/zadykian/skills/blob/main/skills/banned-terms/SKILL.md) sets
+  the terms kept out of names and prose.
 - Commits are signed. The repository is public: no secret, employer's name, internal host or
   address goes into it.
-- Prose keeps to the `writing` skill: 30 words a sentence and 100 columns a line.
 
 ## How changes land
 
