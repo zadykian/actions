@@ -2,13 +2,12 @@
 # The cases of pr-description/check.sh, each a description of pull request #1.
 
 # describe starts the case $1, of pull request #1 into main, its default branch, with the
-# description $2 and the fields of the JSON $3 over it. It checks it with the VAR=VALUE arguments
-# after them.
+# description $2 and the fields of the JSON $3 over it, and checks it.
 describe() {
     setup "$1"
     answer repos/o/r/pulls/1 "$(pull "$(jq -n --arg body "$2" --argjson over "${3:-null}" \
         '{body: $body, base: {repo: {default_branch: "main"}}} * ($over // {})')")"
-    check pr-description "${@:4}"
+    check pr-description
 }
 
 setup warns-on-an-empty-description
@@ -158,11 +157,4 @@ warnings 0
 
 describe warns-on-201-words "$edge"$' One.'"$changes"
 warns "The description holds 201 words, outside code blocks and HTML comments: 1 over 200."
-warnings 1
-
-describe warns-over-max-words "$clean" '' MAX_WORDS=7
-warns "The description holds 8 words, outside code blocks and HTML comments: 1 over 7."
-
-describe warns-on-a-max-words-of-no-count "$clean" '' MAX_WORDS=many
-warns "::warning::pr-description could not check #1: max-words is \`many\`, not a count of words."
 warnings 1

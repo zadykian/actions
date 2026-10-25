@@ -84,8 +84,8 @@ rule empty 'The description is empty' "$url" "Describe the pull request in the f
 
 $(template "$problem_md" "$changes_md" "$stack_md" "$footer_md")"
 
-max=${MAX_WORDS:-200}
-[[ $max =~ ^[0-9]+$ ]] || cannot_check "max-words is $(quote "$max"), not a count of words."
+# The most words of a description, as $url sets it. No input changes it.
+max=200
 pull=$(gh api "repos/$GH_REPO/pulls/$PR")
 # GitHub keeps the line ends that the browser sent, \r\n.
 body=$(jq -r '.body // ""' <<<"$pull")
