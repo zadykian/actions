@@ -53,7 +53,7 @@ comment.
 the permissions it needs.
 
 Each action's README, in its directory, says what it does. A check's README also gives its inputs
-and the rules it links to.
+and the rules it links to. No input changes a rule: each check holds the skill's own.
 
 ## Versions
 

@@ -47,7 +47,8 @@ The checks alone:
   them, and each ends in one warning. A case of `tests/NAME.sh` fails where it exits non-zero.
 - It reads the pull request through `gh api` alone, and checks out nothing, so it runs none of the
   pull request's code. It runs on `pull_request`, of the types `opened, edited, reopened,
-  synchronize`. Every check takes the inputs `token` and `comment`.
+  synchronize`. Every check takes the inputs `token` and `comment`, and none that changes a rule:
+  `check.sh` holds the skill's own values, with a link to the section that sets each.
 - `check.sh` reaches `lib/` as `$GITHUB_ACTION_PATH/../lib`: the runner downloads the whole
   repository for `zadykian/actions/NAME@SHA`.
 - A finding says where, quotes what is wrong, and links to the rule's section of the skill. The
