@@ -1,0 +1,64 @@
+name: Fast-forward
+description: >-
+  Lands a pull request on a /ff comment by pushing its head commit to the default branch, so that
+  the branch holds the very commits the checks ran on.
+author: zadykian
+branding:
+  icon: fast-forward
+  color: green
+
+# A job of the issue_comment event runs it. Only a comment on a pull request that starts with /ff
+# moves the branch; the others pass, should the job run on every comment.
+runs:
+  using: composite
+  steps:
+    - id: comment
+      if: >-
+        github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/ff')
+      shell: bash
+      run: echo run=true >>"$GITHUB_OUTPUT"
+    - if: steps.comment.outputs.run == 'true'
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        # zizmor: ignore[artipacked] git push, below, uses the credentials that checkout keeps.
+    - name: Fast-forward
+      if: steps.comment.outputs.run == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.issue.number }}
+        COMMENTER: ${{ github.event.comment.user.login }}
+        MAIN: ${{ github.event.repository.default_branch }}
+      run: '"$GITHUB_ACTION_PATH/fast-forward.sh"'
+    # The pull request has landed: a failure in the next two steps is a warning.
+    - name: Close the issues
+      if: steps.comment.outputs.run == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.issue.number }}
+      run: '"$GITHUB_ACTION_PATH/close-issues.sh"'
+    - name: Delete the branch
+      if: steps.comment.outputs.run == 'true'
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.issue.number }}
+        MAIN: ${{ github.event.repository.default_branch }}
+      run: '"$GITHUB_ACTION_PATH/delete-branch.sh"'
+    - name: Report
+      if: failure() && steps.comment.outputs.run == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.issue.number }}
+        MAIN: ${{ github.event.repository.default_branch }}
+      run: '"$GITHUB_ACTION_PATH/report.sh"'
