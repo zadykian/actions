@@ -1,0 +1,29 @@
+name: ci
+
+# Every pull request, whatever its base, as pull requests may be stacked. On main, the commits
+# pushed by hand: the fast-forward workflow's pushes start no workflow. main's ruleset requires
+# the lint job by its name.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  # make lint: actionlint, zizmor, ShellCheck and shfmt, at the versions tools/run pins. Any
+  # finding fails it, warnings included.
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: make lint
+        env:
+          # zizmor's online audits, which look the actions up on GitHub, need a token.
+          GH_TOKEN: ${{ github.token }}
+
