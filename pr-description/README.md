@@ -30,7 +30,8 @@ description.
 ## Rules
 
 Each rule links to [section 6][section]. Its finding quotes the heading or the text at fault, and
-its fix shows the form. A heading in a fenced code block or an HTML comment is no heading, and
+its fix shows the form. A heading may be an ATX one, as `# Title`, or a setext one, a line
+underlined with `===` or `---`. A heading in a fenced code block or an HTML comment is none, and
 an HTML comment or a code block is no prose: a template's comments, left alone, are no
 description.
 
@@ -39,6 +40,7 @@ description.
 | `empty` | The description is empty, or blank |
 | `problem` | `## Problem` is missing, has text or a heading before it, or holds no prose |
 | `changes` | `## Changes` is missing, comes before Problem, or holds no bullet |
+| `sections` | A heading other than the three, at any level, or one out of order or repeated |
 
 ## Inputs
 

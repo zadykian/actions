@@ -86,3 +86,27 @@ describe warns-on-a-template-left-alone "$template"
 warns "\`## Problem\`, line 1 of the description, holds no prose."
 warns "\`## Changes\`, line 5 of the description, holds no bullet."
 warnings 2
+
+describe warns-on-another-heading "$clean"$'\n\n### Testing\n\nRan it.'
+warns "The heading \`### Testing\`, line 9 of the description, is not one of \`## Problem\`,"
+warnings 1
+
+describe warns-on-a-setext-title $'Add a check\n===\n\n'"$clean"
+warns "The heading \`Add a check\` over \`===\`, line 1 of the description, is not one of"
+warns "is not its first section: \`Add a check\` comes before it."
+warnings 2
+
+describe warns-on-a-setext-heading "$clean"$'\n---\n\nA note\n---'
+warns "The heading \`A note\` over \`---\`, line 10 of the description, is not one of"
+warnings 1
+
+describe warns-on-sections-out-of-order "$problem"$'\n\n## Stack\n\nPR 1 of 2.'"$changes"
+warns "The heading \`## Changes\`, line 9 of the description, comes after \`## Stack\`: they go"
+warnings 1
+
+describe warns-on-a-repeated-section "$clean$changes"
+warns "The heading \`## Changes\`, line 9 of the description, comes after \`## Changes\`"
+warnings 1
+
+describe ignores-headings-in-fences "$clean"$'\n\n```sh\n# Notes\n```\n\n~~~\nNotes\n---\n~~~'
+warnings 0

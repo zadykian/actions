@@ -44,9 +44,11 @@ words() {
     { LC_ALL=C grep -o '[^[:space:]]*[^[:space:][:punct:]][^[:space:]]*' <<<"$1" || true; } | wc -l
 }
 
-# heading records a heading from the line $1 to the line $2, of the level $3 and the text $4.
+# heading records a heading from the line $1 to the line $2, of the level $3 and the text $4, as
+# the Markdown $5 quotes it.
 heading() {
     h_starts+=("$1") h_ends+=("$2") h_levels+=("$3") h_texts+=("${4%"${4##*[![:blank:]]}"}")
+    h_quotes+=("$5")
 }
 
 # first prints the index of the first heading `## $1`, or -1.
@@ -85,12 +87,15 @@ fi
 # The description's lines from 0, as Markdown reads them: kinds[i] is text, code or heading, and
 # texts[i] the line without its HTML comments. A comment that opens a line hides the lines up to
 # its end, as an HTML block does; one within a line hides itself alone.
-kinds=() texts=() fence='' hidden=false
-# The headings by index: their first and last lines, levels and texts.
-h_starts=() h_ends=() h_levels=() h_texts=()
+kinds=() texts=() fence='' hidden=false para=-1
+# The headings by index: their first and last lines, levels, texts, and quotes of their source.
+h_starts=() h_ends=() h_levels=() h_texts=() h_quotes=()
 opener="^ {0,3}((\`{3,})[^\`]*|(~{3,}).*)\$" closer="^ {0,3}(\`{3,}|~{3,})[[:blank:]]*\$"
 atx='^ {0,3}(#{1,6})([[:blank:]]+(.*))?$'
 closing='^((.*[^[:blank:]])[[:blank:]]+)?#+[[:blank:]]*$'
+# A setext heading underlines a paragraph, but not a list item or a quote: there, a line of
+# dashes is a thematic break.
+setext='^ {0,3}(=+|-+)[[:blank:]]*$' item='^ {0,3}(>|([-*+]|[0-9]{1,9}[.)])([[:blank:]]|$))'
 while IFS= read -r line; do
     if [ -n "$fence" ] || { ! $hidden && [[ $line =~ $opener ]]; }; then
         if [ -z "$fence" ]; then
@@ -98,7 +103,7 @@ while IFS= read -r line; do
         elif [[ $line =~ $closer && ${BASH_REMATCH[1]} == "$fence"* ]]; then
             fence=''
         fi
-        kinds+=(code) texts+=("$line")
+        kinds+=(code) texts+=("$line") para=-1
         continue
     fi
     visible='' rest=$line
@@ -117,15 +122,25 @@ while IFS= read -r line; do
             break
         fi
     done
-    texts+=("$visible")
+    texts+=("$visible") n=${#kinds[@]}
     if [[ $visible =~ $atx ]]; then
         # A closing run of #, as in `## Problem ##`, is no part of the text.
         level=${#BASH_REMATCH[1]} text=${BASH_REMATCH[3]}
         [[ ! $text =~ $closing ]] || text=${BASH_REMATCH[2]}
-        heading ${#kinds[@]} ${#kinds[@]} "$level" "$text"
-        kinds+=(heading)
+        heading "$n" "$n" "$level" "$text" "$(quote "$visible")"
+        kinds+=(heading) para=-1
+    elif [ "$para" != -1 ] && [[ $visible =~ $setext && ! ${texts[para]} =~ $item ]]; then
+        level=1
+        [[ $visible != *-* ]] || level=2
+        text=$(printf '%s ' "${texts[@]:para:n-para}")
+        text=${text#"${text%%[![:blank:]]*}"}
+        heading "$para" "$n" "$level" "$text" "$(quote "$text") over $(quote "$visible")"
+        for ((i = para; i <= n; i++)); do kinds[i]=heading; done
+        para=-1
     else
         kinds+=(text)
+        # The first line of the paragraph that this line is in, or -1 for a blank line.
+        if [ -z "${visible//[[:blank:]]/}" ]; then para=-1; elif [ "$para" = -1 ]; then para=$n; fi
     fi
 done <<<"$body"
 
@@ -170,4 +185,24 @@ else
     done <<<"$(section "$c")"
     [ "$bullets" != 0 ] || finding changes "$at holds no bullet${opening:+: it opens $opening}."
 fi
+
+rule sections 'The description has a heading other than the three, or out of order' "$url" "Keep \
+to these headings, at level 2 and in this order, each once: fold any other into them. A heading \
+in a code block is no heading.
+
+$(template "$problem_md" "$changes_md" "$stack_md")"
+names=(Problem Changes Stack) last=-1
+for i in "${!h_texts[@]}"; do
+    at="The heading ${h_quotes[i]}, line $((h_starts[i] + 1)) of the description,"
+    k=-1
+    for j in 0 1 2; do [ "${h_levels[i]} ${h_texts[i]}" != "2 ${names[j]}" ] || k=$j; done
+    if [ "$k" = -1 ]; then
+        finding sections "$at is not one of \`## Problem\`, \`## Changes\` and \`## Stack\`."
+    elif [ "$k" -le "$last" ]; then
+        finding sections "$at comes after \`## ${names[last]}\`: they go Problem, Changes, Stack,\
+ each once."
+    else
+        last=$k
+    fi
+done
 report_finish
