@@ -1,8 +1,9 @@
 #!/bin/bash
-# Releases the tag $1, vMAJOR.MINOR.PATCH, as a GitHub Release of $GH_REPO, whose notes are the
-# headers of its commits, grouped as breaking changes, features, fixes and the rest. It refuses a
-# tag of another form, a lightweight one, and one off main, and publishes nothing then. It runs in
-# a clone of the repository, and needs git and gh.
+# Releases the tag $1, vMAJOR.MINOR.PATCH, as a GitHub Release of $GH_REPO. Its notes are the
+# headers of the commits since the previous v* tag, grouped as breaking changes, features, fixes
+# and the rest. It refuses a tag of another form, a lightweight one, one off main, and a version
+# other than those commits call for, and publishes nothing then. It runs in a clone of the
+# repository, and needs git and gh.
 
 set -euo pipefail
 
@@ -25,6 +26,10 @@ git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || refuse "origin has
 commit=$(git rev-parse "refs/tags/$tag^{commit}")
 git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
     refuse "$tag tags ${commit:0:7}, which is not on main."
+# The previous release's tag, the nearest annotated one, or none before the first release.
+previous=$(git describe --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude "$tag" "$commit" \
+    2>/dev/null) || previous=''
+
 # section prints the notes' section titled $1, of the lines after it, where there are any.
 section() {
     [ $# = 1 ] || printf '## %s\n\n%s\n\n' "$1" "$(printf '%s\n' "${@:2}")"
@@ -35,7 +40,8 @@ section() {
 breaking=() features=() fixes=() others=()
 bang='^[a-z]+(\([^)]*\))?!: ' feat='^feat(\([^)]*\))?: ' fix='^fix(\([^)]*\))?: '
 footer=$'(^|\n)BREAKING[ -]CHANGE: '
-log=$(git log --reverse --format='%h %s' "$commit")
+log=$(git log --reverse --format='%h %s' "${previous:+$previous..}$commit")
+[ -n "$log" ] || refuse "$tag adds no commit to $previous."
 while read -r sha header; do
     line="- $header ($sha)"
     if [[ $header =~ $bang ]] || [[ $(git log -1 --format=%b "$sha") =~ $footer ]]; then
@@ -48,6 +54,23 @@ while read -r sha header; do
         others+=("$line")
     fi
 done <<<"$log"
+
+# A breaking change bumps the major, or the minor before 1.0, a feature the minor, and the rest the
+# patch. The first release may take any version.
+if [ -n "$previous" ]; then
+    IFS=. read -r major minor patch <<<"${previous#v}"
+    if [ ${#breaking[@]} != 0 ] && [ "$major" != 0 ]; then
+        next=v$((major + 1)).0.0 why='a breaking change'
+    elif [ ${#breaking[@]} != 0 ]; then
+        next=v0.$((minor + 1)).0 why='a breaking change, before 1.0'
+    elif [ ${#features[@]} != 0 ]; then
+        next=v$major.$((minor + 1)).0 why='a feature'
+    else
+        next=v$major.$minor.$((patch + 1)) why='no feature and no breaking change'
+    fi
+    [ "$tag" = "$next" ] || refuse "$tag is not the version the commits since $previous call for," \
+        "$next, for $why: delete $tag, and tag $next."
+fi
 
 notes=$(mktemp)
 trap 'rm -f "$notes"' EXIT

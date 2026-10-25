@@ -27,7 +27,8 @@ tag() {
 refuses() {
     step "$ROOT/tools/release" "$1"
     exits 1
-    prints "::error::$2"
+    grep '^::error::' "$FAKE/out" | grep -F -- "$2" >/dev/null ||
+        fail "no error '$2': $(cat "$FAKE/out")"
     ! grep -qF 'release create' "$FAKE/calls" 2>/dev/null || fail "released $1"
 }
 
@@ -82,3 +83,55 @@ grep -qxF -- "- fix: mend w ($(git rev-parse --short HEAD~))" "$FAKE/notes" ||
 
 - chore: start
 - docs: describe v' ] || fail "the notes: $(cat "$FAKE/notes")"
+
+setup releases-the-next-version
+repository
+tag v1.2.3
+commit 'fix: mend it'
+commit 'feat: add it'
+tag v1.3.0
+step "$ROOT/tools/release" v1.3.0
+exits 0
+[ "$(sed -E 's/ \([0-9a-f]+\)$//' "$FAKE/notes")" = '## Features
+
+- feat: add it
+
+## Fixes
+
+- fix: mend it' ] || fail "the notes: $(cat "$FAKE/notes")"
+
+setup bumps-the-patch-for-the-rest
+repository
+tag v1.2.3
+commit 'docs: describe it'
+commit 'fix: mend it'
+tag v1.3.0
+refuses v1.3.0 'v1.3.0 is not the version the commits since v1.2.3 call for, v1.2.4, for no'
+
+setup bumps-the-minor-for-a-feature
+repository
+tag v1.2.3
+commit 'fix: mend it'
+commit 'feat: add it'
+tag v1.2.4
+refuses v1.2.4 'since v1.2.3 call for, v1.3.0, for a feature: delete v1.2.4, and tag v1.3.0.'
+
+setup bumps-the-major-for-a-breaking-change
+repository
+tag v1.2.3
+commit 'refactor: move it' 'BREAKING CHANGE: it moved.'
+tag v1.3.0
+refuses v1.3.0 'v1.3.0 is not the version the commits since v1.2.3 call for, v2.0.0, for a breaking'
+
+setup bumps-the-minor-for-a-breaking-change-before-1.0
+repository
+tag v0.3.1
+commit 'feat!: drop it'
+tag v1.0.0
+refuses v1.0.0 'since v0.3.1 call for, v0.4.0, for a breaking change, before 1.0: delete v1.0.0'
+
+setup refuses-a-tag-of-no-commit
+repository
+tag v1.2.3
+tag v1.2.4
+refuses v1.2.4 'v1.2.4 adds no commit to v1.2.3.'
