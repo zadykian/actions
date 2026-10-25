@@ -55,10 +55,10 @@ ff() {
 }
 
 # land runs ff's scripts as action.yml's steps do: fast-forward.sh, then close-issues.sh and
-# delete-branch.sh, or comment-refusal.sh where it fails. STATUS is fast-forward.sh's. The case
-# fails where another script fails.
+# delete-branch.sh, or comment-refusal.sh where it fails. STATUS is fast-forward.sh's, and before
+# is main's commit before it. The case fails where another script fails.
 land() {
-    STATUS=0
+    before=$(at main) STATUS=0
     : >"$FAKE/out"
     ff fast-forward || STATUS=$?
     if [ "$STATUS" = 0 ]; then
@@ -76,7 +76,60 @@ lands() {
     ! grep -q '^pr comment' "$FAKE/calls" || fail "commented: $(cat "$FAKE/calls")"
 }
 
+# refuses checks that the run failed with main where it was, and commented the text $1.
+refuses() {
+    exits 1
+    [ "$(at main)" = "$before" ] || fail "main moved"
+    wrote POST repos/o/r/issues/1/comments "$1"
+}
+
 setup lands
 start
 land
 lands
+
+setup no-push
+start
+answer repos/o/r/collaborators/alice/permission '{"user": {"permissions": {"push": false}}}'
+land
+refuses '@alice cannot push to o/r.'
+
+setup closed
+start
+opened closed main
+land
+refuses '#1 is closed.'
+
+setup other-base
+start
+opened open dev
+land
+refuses '#1 is into dev, not main.'
+
+setup behind
+start
+git -C "$FAKE/seed" switch -q main
+commit later main
+land
+refuses '#1 does not start from the head of main: rebase it onto main.'
+
+setup workflows
+start
+commit .github/workflows/ci.yml feat
+head=$(at feat)
+opened open main
+land
+refuses '#1 changes .github/workflows, which GITHUB_TOKEN may not push:'
+
+setup push-refused
+start
+printf '#!/bin/sh\necho "a rule refuses it" >&2\nexit 1\n' >"$FAKE/origin.git/hooks/pre-receive"
+chmod +x "$FAKE/origin.git/hooks/pre-receive"
+land
+refuses 'a rule refuses it'
+
+setup run-failed
+start
+refuse GET repos/o/r/pulls/1 404
+land
+refuses "\`/ff\` did not move main: The run failed."
