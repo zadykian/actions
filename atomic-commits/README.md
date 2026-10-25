@@ -1,8 +1,8 @@
 # atomic-commits
 
-Warns on a pull request whose commits break the rules of the [atomic-commits][skill] skill. It
-never blocks the merge: it annotates the pull request, writes a job summary and keeps one comment
-of its report up to date, and its job passes.
+Warns on a pull request whose commits or size break the rules of the [atomic-commits][skill]
+skill. It never blocks the merge: it annotates the pull request, writes a job summary and keeps
+one comment of its report up to date, and its job passes.
 
 ## Usage
 
@@ -60,6 +60,12 @@ Each commit's place in the branch:
 
 Either finding is the commit's only one, as its fix folds the commit in or drops it.
 
+Each commit's size, as [the hard rules][rules] set it:
+
+- `commit-size`: a commit changes `max-commit-lines` lines at most, its insertions and deletions in
+  the paths that `exclude` does not match. A purely mechanical commit, such as a rename, may be
+  larger where its body says `mechanical`.
+
 GitHub lists the first 250 commits of a pull request alone. Past them, the `commit-count` finding
 says how many commits the check skipped.
 
@@ -69,6 +75,10 @@ says how many commits the check skipped.
 - `comment`, `true` by default: `false` leaves the report to the annotations and the job summary.
 - `types`, `feat fix refactor perf test docs style build ci chore revert` by default: the types
   that a header may take, separated by spaces.
+- `max-commit-lines`, `100` by default: the changed lines that a commit may hold.
+- `exclude`: globs of the paths that no count of changed lines takes in, one a line, as git's
+  `:(glob)` pathspecs match them. Its default is the list of [section 7][s7]: lockfiles, generated
+  code and vendored dependencies.
 
 ## What it cannot check
 
@@ -81,3 +91,4 @@ that each commit builds and passes the tests on its own, or that it holds one lo
 [s2]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#2-shape-each-commit
 [s3]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#3-commit-messages-conventional-commits-100
 [s6]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#6-stack-mechanics-git--238
+[s7]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#7-verify

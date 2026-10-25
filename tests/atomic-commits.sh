@@ -4,18 +4,22 @@
 # shellcheck disable=SC2016
 
 # commits answers the commits of pull request #1, one of each message $@, in pages of 100. The
-# Nth's SHA is N seven times over, as 1111111, and it has one parent.
+# Nth's SHA is N seven times over, as 1111111. It has one parent, and changes no file.
 commits() {
     local list pages
     list=$(jq -nc '[$ARGS.positional | to_entries[] |
         {sha: ("\(.key + 1)" * 7), parents: [{}], commit: {message: .value}}]' --args "$@")
     mapfile -t pages < <(jq -c 'range(0; length; 100) as $i | .[$i:$i + 100]' <<<"$list")
     answer repos/o/r/pulls/1/commits "${pages[@]}"
+    for sha in $(jq -r '.[].sha' <<<"$list"); do
+        answer "repos/o/r/commits/$sha" '{"files": []}'
+    done
 }
 
 # atomic runs the check with the action's default inputs, and the VAR=VALUE arguments over them.
 atomic() {
-    check atomic-commits TYPES='feat fix refactor perf test docs style build ci chore revert' "$@"
+    check atomic-commits TYPES='feat fix refactor perf test docs style build ci chore revert' \
+        MAX_COMMIT_LINES=100 EXCLUDE=$'**/go.sum\n**/vendor/**' "$@"
 }
 
 setup passes-clean-commits
@@ -132,3 +136,22 @@ atomic
 warns 'Commit `2502502 Add the last`: the header is not'
 warns '#1 has 300 commits, and GitHub lists the first 250 alone: the check skipped the other 50.'
 warnings 2
+
+# The paths that EXCLUDE matches count for nothing, and a body that says mechanical exempts all.
+setup warns-on-a-large-commit
+commits 'feat: add y' 'feat: add z' $'refactor: rename w\n\nA Mechanical rename.' 'feat: add v'
+answer repos/o/r/commits/1111111 '{"files": [{"filename": "a", "additions": 60, "deletions": 41}]}'
+answer repos/o/r/commits/2222222 '{"files": [{"filename": "a", "additions": 50, "deletions": 50},
+    {"filename": "go.sum", "additions": 500, "deletions": 0},
+    {"filename": "x/vendor/y.go", "additions": 500, "deletions": 0}]}'
+answer repos/o/r/commits/3333333 '{"files": [{"filename": "a", "additions": 300, "deletions": 0}]}'
+answer repos/o/r/commits/4444444 \
+    '{"files": [{"filename": "a", "additions": 100, "deletions": 0}]}' \
+    '{"files": [{"filename": "b", "additions": 1, "deletions": 0}]}'
+atomic
+warns 'Commit `1111111 feat: add y` changes 101 lines, and its body does not say `mechanical`.'
+warns 'Commit `4444444 feat: add v` changes 101 lines'
+warnings 2
+atomic MAX_COMMIT_LINES=101 EXCLUDE=go.sum
+warns 'Commit `2222222 feat: add z` changes 600 lines'
+warnings 1

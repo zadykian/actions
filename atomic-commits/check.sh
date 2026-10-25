@@ -1,6 +1,6 @@
 #!/bin/bash
 # Warns where the commits of pull request $PR of $GH_REPO break the rules of the atomic-commits
-# skill. TYPES holds the types that a header may take.
+# skill. TYPES, MAX_COMMIT_LINES and EXCLUDE hold the inputs that action.yml describes.
 
 set -euo pipefail
 # A $(...) fails as its command fails. A length counts characters, not bytes.
@@ -8,6 +8,19 @@ shopt -s inherit_errexit
 export LC_ALL=C.UTF-8
 # shellcheck source=lib/report.sh
 . "$GITHUB_ACTION_PATH/../lib/report.sh"
+# shellcheck source=lib/glob.sh
+. "$GITHUB_ACTION_PATH/../lib/glob.sh"
+
+# changed prints the lines changed in the files that the gh api path $1 lists, as the jq filter $2
+# gives them, out of the files that EXCLUDE matches.
+changed() {
+    local files count path sum=0
+    files=$(gh api --paginate "$1" --jq "$2 | \"\\(.additions + .deletions)\\t\\(.filename)\"")
+    while IFS=$'\t' read -r count path; do
+        [ -z "$path" ] || excluded "$path" || sum=$((sum + count))
+    done <<<"$files"
+    echo "$sum"
+}
 
 # header records the findings of the header $2, which $1 names, under the rule $3, or each under
 # its own rule where $3 is omitted.
@@ -115,6 +128,10 @@ rule merge 'A merge commit' "$skill#6-stack-mechanics-git--238" "Rebase the bran
 rebase --update-refs origin/$base\`. Then push it with \`git push --force-with-lease\`."
 rule commit-count 'More commits than GitHub lists' "$skill#5-choose-pr-boundaries" \
     "Split the pull request into a stack of smaller ones, as sections 5 and 6 of the skill say."
+rule commit-size "A commit is over $MAX_COMMIT_LINES changed lines" "$skill#hard-rules" "Split it \
+into commits of one logical change each, of $MAX_COMMIT_LINES changed lines at most. A purely \
+mechanical commit, such as a rename, a move, formatting or regenerated code, may be larger where \
+its body says so: \`mechanical\`. $reword"
 
 # Each commit, as its SHA and its counts of parents and lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] | {sha,
@@ -136,6 +153,11 @@ while read -r sha parents count; do
     else
         header "Commit $commit" "${lines[0]-}"
         message "$commit" "${lines[@]}"
+        size=0 body=${lines[*]:1}
+        [[ ${body,,} == *mechanical* ]] ||
+            size=$(changed "repos/$GH_REPO/commits/$sha?per_page=100" '.files[]')
+        [ "$size" -le "$MAX_COMMIT_LINES" ] || finding commit-size \
+            "Commit $commit changes $size lines, and its body does not say \`mechanical\`."
     fi
 done <<<"$commits"
 # GitHub lists 250 commits of a pull request at most.
