@@ -49,6 +49,16 @@ How to fix it:
 
 Names no responsibility: name what it does"
 
+start quotes-a-backtick
+titled $'fix: drop  the `utils`\tmodule'
+check banned-terms
+summarizes "- The title says \`utils\`: \`\` fix: drop the \`utils\` module \`\`"
+
+start cuts-a-long-quote
+titled "feat: add a helper $(printf '%0130d' 0)"
+check banned-terms
+summarizes "\`feat: add a helper $(printf '%0100d' 0)…\`"
+
 start passes-a-clean-pull-request
 check banned-terms
 warnings 0

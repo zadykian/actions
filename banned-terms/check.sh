@@ -37,7 +37,9 @@ defs='($index | keys | join("|")) as $any
     | gsub("(?<a>[A-Z])(?=[A-Z][a-z])"; "\(.a) ")
     | [ascii_downcase | splits("[^a-z0-9]+") | select($index[.])] | unique[];
   def code: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "")
-    | if length > 120 then .[:119] + "…" else . end | "`\(.)`";
+    | if length > 120 then .[:119] + "…" else . end
+    | ("`" * ([scan("`+") | length] + [0] | max + 1)) as $fence
+    | if test("`") then "\($fence) \(.) \($fence)" else "\($fence)\(.)\($fence)" end;
   def find($where; $file; $line): . as $text | terms
     | [$index[.], "\($where) says `\(.)`: \($text | code)", $file, $line]
     | map(tostring | gsub("[\t\n]"; " ")) | join("\t");'
