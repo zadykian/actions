@@ -1,14 +1,17 @@
 # actions
 
-GitHub Actions that check each pull request against the rules that
-[zadykian/skills](https://github.com/zadykian/skills) teaches the agent. Each one warns and never
-blocks. [README.md](README.md) says how a repository pins them, and each action's README what it
-checks.
+GitHub Actions for the rules that [zadykian/skills](https://github.com/zadykian/skills) teaches
+the agent, of two kinds. The checks warn on a pull request and never block. `ff` lands a pull
+request by fast-forward on a `/ff` comment, and fails, with a comment saying why, when it refuses.
+[README.md](README.md) says how a repository pins them, and each action's README what it does.
 
 ## Layout
 
-- `NAME/`: an action, which a workflow uses as `zadykian/actions/NAME@SHA`: its `action.yml`, its
+- `NAME/`: a check, which a workflow uses as `zadykian/actions/NAME@SHA`: its `action.yml`, its
   `check.sh`, and a README of what it checks, its inputs and the rules it links to.
+- `ff/`: the `/ff` action: its `action.yml`, the scripts of its steps, `fast-forward.sh`,
+  `close-issues.sh`, `delete-branch.sh` and `comment-refusal.sh`, and a README of what it does and
+  the settings it relies on.
 - `lib/report.sh`: what each `check.sh` sources to turn its findings into annotations, a job
   summary and one comment. Its header comment is its API.
 - `lib/glob.sh`: `excluded PATH`, the one reading of the `exclude` inputs.
@@ -31,20 +34,34 @@ make lint-file FILES='PATHS'       # the gates of some files, as the lint hooks 
 
 ## How an action is built
 
-- It never blocks. `check.sh` exits 0 on findings and on its own errors: `report_start` traps
+Every action:
+
+- `action.yml` passes `github.repository`, the pull request's number and the inputs in `env:`,
+  never as `${{ }}` in `run:`, which zizmor's template-injection audit refuses.
+- An action's pull request changes its own directory and its own `tests/NAME.sh` alone. A change
+  to `lib/` or `tests/` is a pull request of its own.
+
+The checks alone:
+
+- A check never blocks. `check.sh` exits 0 on findings and on its own errors: `report_start` traps
   them, and each ends in one warning. A case of `tests/NAME.sh` fails where it exits non-zero.
 - It reads the pull request through `gh api` alone, and checks out nothing, so it runs none of the
   pull request's code. It runs on `pull_request`, of the types `opened, edited, reopened,
-  synchronize`.
-- `action.yml` passes `github.repository`, the pull request's number and the inputs in `env:`,
-  never as `${{ }}` in `run:`, which zizmor's template-injection audit refuses. Every action takes
-  the inputs `token` and `comment`.
+  synchronize`. Every check takes the inputs `token` and `comment`.
 - `check.sh` reaches `lib/` as `$GITHUB_ACTION_PATH/../lib`: the runner downloads the whole
   repository for `zadykian/actions/NAME@SHA`.
 - A finding says where, quotes what is wrong, and links to the rule's section of the skill. The
   rule says how to fix it, with a command where one exists.
-- An action's pull request changes its own directory and its own `tests/NAME.sh` alone. A change
-  to `lib/` or `tests/` is a pull request of its own.
+
+`ff`:
+
+- It runs on `issue_comment`, and acts on a `/ff` comment on a pull request alone.
+- Unlike a check, it goes past `gh api`: it checks out the default branch, fetches the pull
+  request's head, and pushes it with git. It runs none of the pull request's code.
+- It blocks: a refusal fails the job, and `comment-refusal.sh` comments why. Once the push lands,
+  closing the issues and deleting the branch only warn. It takes no inputs, and uses no `lib/`.
+- `tests/ff.sh` runs its scripts in a clone of a local origin. A case checks where `main` ends,
+  and what the pull request is told.
 
 ## Commits and pull requests
 
