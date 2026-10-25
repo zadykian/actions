@@ -105,17 +105,32 @@ both ways: a \`!\` before the header's colon, and a footer \`BREAKING CHANGE: <w
 what callers must do>\`. Where nothing breaks, drop both. $reword"
 rule revert 'A revert has no Refs footer' "$messages" \
     "End the message with a footer \`Refs: <sha>\`, the reverted commit's. $reword"
+rule fixup 'A fixup or WIP commit' "$skill#2-shape-each-commit" "Fold it into the commit it \
+belongs to. A \`fixup!\`, \`squash!\` or \`amend!\` commit squashes in with \
+\`GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --update-refs $base\`. Reword a WIP commit \
+into a \`fixup!\` of that commit first. $reword"
+rule merge 'A merge commit' "$skill#6-stack-mechanics-git--238" "Rebase the branch onto \
+\`$base\` instead of merging it in, which drops the merge commits: \`git fetch origin && git \
+rebase --update-refs origin/$base\`. Then push it with \`git push --force-with-lease\`."
 
-# Each commit, as its SHA and its count of lines, then the lines of its message.
-commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] |
-    {sha, lines: (.commit.message | sub("\\s+$"; "") | split("\n"))} |
-    "\(.sha) \(.lines | length)", .lines[]')
+# Each commit, as its SHA and its counts of parents and lines, then the lines of its message.
+commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] | {sha,
+    parents: (.parents | length), lines: (.commit.message | sub("\\s+$"; "") | split("\n"))} |
+    "\(.sha) \(.parents) \(.lines | length)", .lines[]')
 [ -n "$commits" ] || cannot_check 'GitHub lists none of its commits.'
-while read -r sha count; do
+# A commit to fold in or rebase away gets that finding alone.
+temporary='^((fixup|squash|amend)!|wip([^[:alnum:]]|$))'
+while read -r sha parents count; do
     lines=()
     for ((i = 0; i < count; i++)); do IFS= read -r line && lines+=("$line"); done
     commit="\`${sha:0:7} ${lines[0]-}\`"
-    header "Commit $commit" "${lines[0]-}"
-    message "$commit" "${lines[@]}"
+    if [ "$parents" -gt 1 ]; then
+        finding merge "Commit $commit is a merge commit, of $parents parents."
+    elif [[ ${lines[0],,} =~ $temporary ]]; then
+        finding fixup "Commit $commit is temporary: its header starts \`${lines[0]%% *}\`."
+    else
+        header "Commit $commit" "${lines[0]-}"
+        message "$commit" "${lines[@]}"
+    fi
 done <<<"$commits"
 report_finish

@@ -101,3 +101,24 @@ atomic
 warns 'Commit `1111111 revert: feat: add y`: no `Refs:` footer names the reverted commit.'
 warns 'Commit `3333333 revert: feat: add v`: no `Refs:` footer'
 warnings 2
+
+setup warns-on-a-fixup-or-wip-commit
+commits 'fixup! feat: add y' 'squash! feat: add y' 'amend! feat: add y' 'WIP' 'wip: Add y.' \
+    'wipe the cache'
+atomic
+for sha in 1111111 2222222 3333333 4444444 5555555; do
+    warns "title=atomic-commits%3A A fixup or WIP commit::Commit \`$sha"
+done
+warns 'Commit `1111111 fixup! feat: add y` is temporary: its header starts `fixup!`.'
+warns 'Commit `6666666 wipe the cache`: the header is not'
+warnings 6
+summarizes 'GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash --update-refs main'
+
+setup warns-once-on-a-merge-commit
+answer repos/o/r/pulls/1 "$(pull '{"base": {"ref": "feat/x-1"}}')"
+answer repos/o/r/pulls/1/commits '[{"sha": "abcdef0123", "parents": [{}, {}],
+    "commit": {"message": "Merge branch '\''main'\'' into feat"}}]'
+atomic
+warns "Commit \`abcdef0 Merge branch 'main' into feat\` is a merge commit, of 2 parents."
+warnings 1
+summarizes 'git fetch origin && git rebase --update-refs origin/feat/x-1'

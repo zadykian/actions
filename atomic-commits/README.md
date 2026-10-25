@@ -52,6 +52,14 @@ Each commit's message, as [section 3][s3] sets it:
   and a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer.
 - `revert`: a `revert:` commit has a `Refs:` trailer, which names the reverted commit.
 
+Each commit's place in the branch:
+
+- `fixup`: no commit is temporary, as [section 2][s2] says: its header starts neither `fixup!`,
+  `squash!` nor `amend!`, nor the word WIP.
+- `merge`: no commit merges another branch in, as [section 6][s6] keeps a stack by rebase.
+
+Either finding is the commit's only one, as its fix folds the commit in or drops it.
+
 ## Inputs
 
 - `token`, `${{ github.token }}` by default: reads the pull request, and comments on it.
@@ -67,4 +75,6 @@ that each commit builds and passes the tests on its own, or that it holds one lo
 
 [skill]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md
 [rules]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#hard-rules
+[s2]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#2-shape-each-commit
 [s3]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#3-commit-messages-conventional-commits-100
+[s6]: https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md#6-stack-mechanics-git--238
