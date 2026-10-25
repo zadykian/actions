@@ -35,6 +35,7 @@ its fix shows the form.
 | Key | Finding when |
 | --- | --- |
 | `empty` | The description is empty, or blank |
+| `problem` | `## Problem` is missing |
 
 ## Inputs
 

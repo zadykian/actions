@@ -24,3 +24,24 @@ warns 'The description of #1 is empty.'
 
 describe warns-on-no-description '' '{"body": null}'
 warns 'The description of #1 is empty.'
+
+clean=$'## Problem\n\nA check is missing.\n\n## Changes\n\n- Add it.'
+changes=$'\n\n## Changes\n\n- Add it.'
+
+describe passes-a-clean-description "$clean"
+warnings 0
+summarizes 'No findings remain'
+
+describe passes-line-ends-of-a-browser "${clean//$'\n'/$'\r\n'}"
+warnings 0
+
+describe passes-a-closing-run $'## Problem ##\n\nA check is missing.'"$changes"
+warnings 0
+
+describe warns-on-no-problem "${changes:2}"
+warns "The description has no \`## Problem\` heading."
+warnings 1
+
+describe ignores-headings-in-code $'```md\n## Problem\n```\n~~~~\n## Problem\n~~~\n~~~~'"$changes"
+warns "The description has no \`## Problem\` heading."
+warnings 1

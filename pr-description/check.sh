@@ -30,6 +30,20 @@ template() {
     printf '~~~markdown\n%s\n~~~' "$text"
 }
 
+# heading records a heading from the line $1 to the line $2, of the level $3 and the text $4.
+heading() {
+    h_starts+=("$1") h_ends+=("$2") h_levels+=("$3") h_texts+=("${4%"${4##*[![:blank:]]}"}")
+}
+
+# first prints the index of the first heading `## $1`, or -1.
+first() {
+    local i
+    for i in "${!h_texts[@]}"; do
+        [ "${h_levels[i]} ${h_texts[i]}" != "2 $1" ] || { echo "$i" && return; }
+    done
+    echo -1
+}
+
 rule empty 'The description is empty' "$url" "Describe the pull request in the form that section \
 6 sets. \`## Stack\` goes in a pull request of a stack alone, and the footer where the title has \
 \`!\`.
@@ -40,5 +54,46 @@ pull=$(gh api "repos/$GH_REPO/pulls/$PR")
 # GitHub keeps the line ends that the browser sent, \r\n.
 body=$(jq -r '.body // ""' <<<"$pull")
 body=${body//$'\r'/}
-[ -n "${body//[[:space:]]/}" ] || finding empty "The description of #$PR is empty."
+if [ -z "${body//[[:space:]]/}" ]; then
+    finding empty "The description of #$PR is empty."
+    report_finish
+fi
+
+# The description's lines from 0, as Markdown reads them: kinds[i] is text, code or heading, and
+# texts[i] the line.
+kinds=() texts=() fence=''
+# The headings by index: their first and last lines, levels and texts.
+h_starts=() h_ends=() h_levels=() h_texts=()
+opener="^ {0,3}((\`{3,})[^\`]*|(~{3,}).*)\$" closer="^ {0,3}(\`{3,}|~{3,})[[:blank:]]*\$"
+atx='^ {0,3}(#{1,6})([[:blank:]]+(.*))?$'
+closing='^((.*[^[:blank:]])[[:blank:]]+)?#+[[:blank:]]*$'
+while IFS= read -r line; do
+    if [ -n "$fence" ] || [[ $line =~ $opener ]]; then
+        if [ -z "$fence" ]; then
+            fence=${BASH_REMATCH[2]}${BASH_REMATCH[3]}
+        elif [[ $line =~ $closer && ${BASH_REMATCH[1]} == "$fence"* ]]; then
+            fence=''
+        fi
+        kinds+=(code) texts+=("$line")
+        continue
+    fi
+    texts+=("$line")
+    if [[ $line =~ $atx ]]; then
+        # A closing run of #, as in `## Problem ##`, is no part of the text.
+        level=${#BASH_REMATCH[1]} text=${BASH_REMATCH[3]}
+        [[ ! $text =~ $closing ]] || text=${BASH_REMATCH[2]}
+        heading ${#kinds[@]} ${#kinds[@]} "$level" "$text"
+        kinds+=(heading)
+    else
+        kinds+=(text)
+    fi
+done <<<"$body"
+
+rule problem 'The description does not open with a Problem section' "$url" "Open the \
+description with \`## Problem\`: one to three sentences on what is wrong or missing today, and \
+why it matters.
+
+$(template "$problem_md")"
+p=$(first Problem)
+[ "$p" != -1 ] || finding problem "The description has no \`## Problem\` heading."
 report_finish
