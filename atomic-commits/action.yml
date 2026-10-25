@@ -14,15 +14,6 @@ inputs:
   comment:
     description: true keeps one comment of the report on the pull request, false none.
     default: 'true'
-  types:
-    description: The types that a commit header may take, separated by spaces.
-    default: feat fix refactor perf test docs style build ci chore revert
-  max-commit-lines:
-    description: The changed lines that a commit may hold, unless its body says mechanical.
-    default: '100'
-  max-pr-lines:
-    description: The changed lines that the pull request may hold against its base.
-    default: '300'
   exclude:
     description: >-
       Globs of the paths that no count of changed lines takes in, one a line, as git's :(glob)
@@ -50,8 +41,5 @@ runs:
         GH_REPO: ${{ github.repository }}
         PR: ${{ github.event.pull_request.number }}
         COMMENT: ${{ inputs.comment }}
-        TYPES: ${{ inputs.types }}
-        MAX_COMMIT_LINES: ${{ inputs.max-commit-lines }}
-        MAX_PR_LINES: ${{ inputs.max-pr-lines }}
         EXCLUDE: ${{ inputs.exclude }}
       run: '"$GITHUB_ACTION_PATH/check.sh"'

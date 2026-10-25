@@ -18,10 +18,10 @@ commits() {
     answer repos/o/r/pulls/1/files '[]'
 }
 
-# atomic runs the check with the action's default inputs, and the VAR=VALUE arguments over them.
+# atomic runs the check with two globs of the default exclude, and the VAR=VALUE arguments over
+# them.
 atomic() {
-    check atomic-commits TYPES='feat fix refactor perf test docs style build ci chore revert' \
-        MAX_COMMIT_LINES=100 MAX_PR_LINES=300 EXCLUDE=$'**/go.sum\n**/vendor/**' "$@"
+    check atomic-commits EXCLUDE=$'**/go.sum\n**/vendor/**' "$@"
 }
 
 setup passes-clean-commits
@@ -41,8 +41,6 @@ warnings 4
 summarizes 'its type one of `feat fix refactor perf test docs style build ci chore revert`'
 summarizes 'GIT_EDITOR="cp /tmp/msg.txt" \
     git rebase -i --update-refs main'
-atomic TYPES=$'feet\n  feat'
-warnings 3
 
 setup warns-on-a-header-over-72-characters
 commits "feat: $(printf 'a%.0s' {1..67})" "feat: $(printf 'é%.0s' {1..66})"
@@ -156,9 +154,9 @@ atomic
 warns 'Commit `1111111 feat: add y` changes 101 lines, and its body does not say `mechanical`.'
 warns 'Commit `4444444 feat: add v` changes 101 lines'
 warnings 2
-atomic MAX_COMMIT_LINES=101 EXCLUDE=go.sum
+atomic EXCLUDE=go.sum
 warns 'Commit `2222222 feat: add z` changes 600 lines'
-warnings 1
+warnings 3
 
 setup warns-on-a-large-pull-request
 commits 'feat: add y'
@@ -168,8 +166,6 @@ answer repos/o/r/pulls/1/files '[{"filename": "a", "additions": 200, "deletions"
 atomic
 warns '#1 changes 301 lines against `main`.'
 warnings 1
-atomic MAX_PR_LINES=301
-warnings 0
 
 setup warns-on-the-title
 commits 'feat: add y'

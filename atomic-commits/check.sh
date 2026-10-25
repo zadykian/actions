@@ -1,7 +1,6 @@
 #!/bin/bash
 # Warns where the commits, the size or the title of pull request $PR of $GH_REPO break the rules
-# of the atomic-commits skill. TYPES, MAX_COMMIT_LINES, MAX_PR_LINES and EXCLUDE hold the inputs
-# that action.yml describes.
+# of the atomic-commits skill. EXCLUDE holds the input that action.yml describes.
 
 set -euo pipefail
 # A $(...) fails as its command fails. A length counts characters, not bytes.
@@ -85,10 +84,14 @@ message() {
 
 report_start atomic-commits
 skill=https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md
+messages=$skill#3-commit-messages-conventional-commits-100
+# The skill fixes these, and no input changes them: the types of a header, at $messages, and
+# the most changed lines of a commit and of a pull request, at $skill#hard-rules.
+types='feat fix refactor perf test docs style build ci chore revert'
+max_commit_lines=100 max_pr_lines=300
 pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.base.ref) \(.commits // 0) \(.title)"')
 read -r base total title <<<"$pull"
-read -r -d '' -a allowed <<<"$TYPES" || true
-header_form="^($(IFS='|' && echo "${allowed[*]}"))(\([a-z0-9._/-]+\))?!?: [^ ]"
+header_form="^(${types// /|})(\([a-z0-9._/-]+\))?!?: [^ ]"
 # How to reword a commit, as section 4 of the skill says.
 reword=$(
     cat <<'FIX'
@@ -104,9 +107,8 @@ FIX
 )
 reword=${reword//<base>/"$base"}
 
-messages=$skill#3-commit-messages-conventional-commits-100
 rule header 'The header is not Conventional Commits' "$messages" "Write the header as \
-\`type(scope)!: description\`, its type one of \`$TYPES\` and its scope lowercase. $reword"
+\`type(scope)!: description\`, its type one of \`$types\` and its scope lowercase. $reword"
 rule header-length 'The header is over 72 characters' "$messages" \
     "Shorten the header to 72 characters at most. $reword"
 rule description 'The description starts uppercase or ends with a period' "$messages" \
@@ -130,12 +132,12 @@ rule merge 'A merge commit' "$skill#6-stack-mechanics-git--238" "Rebase the bran
 rebase --update-refs origin/$base\`. Then push it with \`git push --force-with-lease\`."
 rule commit-count 'More commits than GitHub lists' "$skill#5-choose-pr-boundaries" \
     "Split the pull request into a stack of smaller ones, as sections 5 and 6 of the skill say."
-rule commit-size "A commit is over $MAX_COMMIT_LINES changed lines" "$skill#hard-rules" "Split it \
-into commits of one logical change each, of $MAX_COMMIT_LINES changed lines at most. A purely \
+rule commit-size "A commit is over $max_commit_lines changed lines" "$skill#hard-rules" "Split it \
+into commits of one logical change each, of $max_commit_lines changed lines at most. A purely \
 mechanical commit, such as a rename, a move, formatting or regenerated code, may be larger where \
 its body says so: \`mechanical\`. $reword"
-rule pr-size "The pull request is over $MAX_PR_LINES changed lines" "$skill#hard-rules" "Split it \
-into a stack of pull requests, each of $MAX_PR_LINES changed lines at most against its own base. \
+rule pr-size "The pull request is over $max_pr_lines changed lines" "$skill#hard-rules" "Split it \
+into a stack of pull requests, each of $max_pr_lines changed lines at most against its own base. \
 Section 5 of the skill says where to cut it, and section 6 how to stack the branches."
 stack=$skill#6-stack-mechanics-git--238
 rule pr-title 'The PR title is not a Conventional Commits header' "$stack" "Retitle it as a \
@@ -170,7 +172,7 @@ while read -r sha parents count; do
         size=0 body=${lines[*]:1}
         [[ ${body,,} == *mechanical* ]] ||
             size=$(changed "repos/$GH_REPO/commits/$sha?per_page=100" '.files[]')
-        [ "$size" -le "$MAX_COMMIT_LINES" ] || finding commit-size \
+        [ "$size" -le "$max_commit_lines" ] || finding commit-size \
             "Commit $commit changes $size lines, and its body does not say \`mechanical\`."
     fi
 done <<<"$commits"
@@ -182,5 +184,5 @@ if [ -n "$breaking" ] && [[ ${title%%: *} != *! ]]; then
 $breaking."
 fi
 size=$(changed "repos/$GH_REPO/pulls/$PR/files?per_page=100" '.[]')
-[ "$size" -le "$MAX_PR_LINES" ] || finding pr-size "#$PR changes $size lines against \`$base\`."
+[ "$size" -le "$max_pr_lines" ] || finding pr-size "#$PR changes $size lines against \`$base\`."
 report_finish

@@ -42,8 +42,8 @@ commit.
 
 Each commit's message, as [section 3][s3] sets it:
 
-- `header`: the header is `type(scope)!: description`, its type one of `types` and its scope
-  lowercase.
+- `header`: the header is `type(scope)!: description`, its type one of the eleven that section 3
+  lists, and its scope lowercase.
 - `header-length`: the header is 72 characters at most.
 - `description`: the description starts lowercase, and ends without a period.
 - `body-blank`: line 2, between the header and the body, is blank.
@@ -64,11 +64,11 @@ Either finding is the commit's only one, as its fix folds the commit in or drops
 
 The sizes, as [the hard rules][rules] set them:
 
-- `commit-size`: a commit changes `max-commit-lines` lines at most, its insertions and deletions in
-  the paths that `exclude` does not match. A purely mechanical commit, such as a rename, may be
-  larger where its body says `mechanical`.
-- `pr-size`: the pull request changes `max-pr-lines` lines at most against its base, in the paths
-  that `exclude` does not match.
+- `commit-size`: a commit changes 100 lines at most, its insertions and deletions in the paths
+  that `exclude` does not match. A purely mechanical commit, such as a rename, may be larger where
+  its body says `mechanical`.
+- `pr-size`: the pull request changes 300 lines at most against its base, in the paths that
+  `exclude` does not match.
 
 The pull request's title, as [section 6][s6] sets it:
 
@@ -83,11 +83,6 @@ says how many commits the check skipped.
 
 - `token`, `${{ github.token }}` by default: reads the pull request, and comments on it.
 - `comment`, `true` by default: `false` leaves the report to the annotations and the job summary.
-- `types`, `feat fix refactor perf test docs style build ci chore revert` by default: the types
-  that a header may take, separated by spaces.
-- `max-commit-lines`, `100` by default: the changed lines that a commit may hold.
-- `max-pr-lines`, `300` by default: the changed lines that the pull request may hold against its
-  base.
 - `exclude`: globs of the paths that no count of changed lines takes in, one a line, as git's
   `:(glob)` pathspecs match them. Its default is the list of [section 7][s7]: lockfiles, generated
   code and vendored dependencies.
