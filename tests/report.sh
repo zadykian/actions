@@ -26,3 +26,11 @@ warns "::warning title=probe%3A Rule A,file=src/x.go,line=12::The title says 100
 warns "::warning title=probe%3A Rule A,file=a%2Cb%3Ac.txt::Quoted: a, b.%0A$rule_a"
 warns "::warning title=probe%3A Rule A::Two%0D%0Alines.%0A$rule_a"
 warnings 3
+
+setup annotates-ten-at-most
+probe <<'CHECK'
+for i in $(seq 12); do finding a "Finding $i."; done
+CHECK
+warnings 10
+warns "::Finding 10.%0A$rule_a%0A2 more findings not annotated."
+! grep -qF 'Finding 11.' "$FAKE/out" || fail "annotated the 11th finding"

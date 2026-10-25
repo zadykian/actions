@@ -11,6 +11,9 @@
 # Markdown. MESSAGE says where and what is wrong, quoting it. FILE is a path from the repository's
 # root, and LINE a line of its new side: with both, the annotation shows in Files changed.
 #
+# report_finish prints a ::warning for each of the first findings, 10 at most, as GitHub shows 10
+# a step. The last says how many more are not annotated.
+#
 # The rules by index: their keys, titles, links and fixes.
 report_keys=() report_titles=() report_urls=() report_fixes=()
 # The findings by index: their rules' indices, messages, files and lines.
@@ -40,6 +43,11 @@ finding() {
     return 1
 }
 
+# report_plural prints the count $1 of the noun $2: 1 finding, or 2 findings.
+report_plural() {
+    if [ "$1" = 1 ]; then printf '1 %s' "$2"; else printf '%s %ss' "$1" "$2"; fi
+}
+
 # report_escape prints the text $1 escaped as a workflow command's message, or as a property
 # where $2 is set.
 report_escape() {
@@ -50,12 +58,16 @@ report_escape() {
     printf '%s' "$text"
 }
 
-# report_annotate prints a ::warning for each finding.
+# report_annotate prints a ::warning for each of the first $1 findings. The last says how many
+# more there are.
 report_annotate() {
-    local i rule message properties
-    for i in "${!report_messages[@]}"; do
+    local count=${#report_messages[@]} i rule message properties
+    for ((i = 0; i < count && i < $1; i++)); do
         rule=${report_rules[i]}
         message="${report_messages[i]}"$'\n'"The rule: ${report_urls[rule]}"
+        if [ $((i + 1)) = "$1" ] && [ "$count" -gt "$1" ]; then
+            message+=$'\n'"$(report_plural $((count - $1)) 'more finding') not annotated."
+        fi
         properties="title=$(report_escape "$report_name: ${report_titles[rule]}" property)"
         if [ -n "${report_files[i]}" ]; then
             properties+=",file=$(report_escape "${report_files[i]}" property)"
@@ -67,6 +79,6 @@ report_annotate() {
 
 # report_finish reports the findings, and exits 0.
 report_finish() {
-    report_annotate
+    report_annotate 10
     exit 0
 }
