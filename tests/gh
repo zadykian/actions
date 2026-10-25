@@ -1,0 +1,52 @@
+#!/bin/bash
+# A stand-in for gh, first on the PATH that tests/run sets. `gh api [-X GET] PATH [-f KEY=VALUE]...
+# [--paginate] [--jq FILTER]` prints what the case answers for PATH, with tests/run's answer: the
+# first page, or with --paginate each page, through --jq's filter as gh applies it. PATH drops its
+# per_page and page parameters, and a GET's fields join its query. A PATH with no answer fails as
+# GitHub's 404 does. $FAKE/calls logs every call.
+
+set -euo pipefail
+
+printf '%s\n' "$*" >>"$FAKE/calls"
+if [ "${1-}" != api ]; then
+    echo "gh: the fake answers gh api alone, not gh $*" >&2
+    exit 1
+fi
+shift
+method='' path='' filter=. paginate=false fields=()
+while [ $# -gt 0 ]; do
+    case $1 in
+    -X | --method) method=${2^^} && shift ;;
+    -f | --raw-field | -F | --field) fields+=("$2") && shift ;;
+    -q | --jq) filter=$2 && shift ;;
+    -H | --header) shift ;;
+    --paginate) paginate=true ;;
+    -*) echo "gh: the fake knows no $1" >&2 && exit 1 ;;
+    *) path=$1 ;;
+    esac
+    shift
+done
+if [ "${method:-GET}" != GET ]; then
+    echo "gh: the fake makes no $method" >&2
+    exit 1
+fi
+
+key=${path%%\?*} sep='?'
+query=${path#"$key"}
+IFS='&' read -ra params <<<"${query#\?}"
+for param in "${params[@]}" "${fields[@]}"; do
+    case $param in
+    per_page=* | page=*) ;;
+    *) key+=$sep$param sep='&' ;;
+    esac
+done
+file=$FAKE/api/${key//\//%}
+if [ ! -f "$file" ]; then
+    echo "gh: Not Found (HTTP 404): the case answers no $key" >&2
+    exit 1
+fi
+if $paginate; then
+    jq -rc "$filter" "$file"
+else
+    jq -n -rc "input | ($filter)" "$file"
+fi

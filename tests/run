@@ -1,11 +1,13 @@
 #!/bin/bash
 # Runs the cases of each tests/NAME.sh, or of those named, `tests/run [NAME...]`, and fails where
-# any case fails.
+# any case fails. tests/gh stands in for gh: it answers each case's canned JSON. It needs jq.
 #
 # A case file is bash, which tests/run sources under set -euo pipefail: a command that fails stops
 # the run. Its cases call these functions, each case setup first:
 #
 #   setup CASE                    starts the case CASE, in $FAKE, a directory of its own
+#   answer PATH JSON [JSON...]    gh api PATH answers JSON, and with --paginate a page an argument
+#   pull [JSON]                   prints pull request #1 as setup answers it, JSON's fields over it
 #   check NAME [VAR=VALUE...]     runs NAME/check.sh as its action.yml step does, with the VARs;
 #                                 the case fails where it exits non-zero, as that fails the job
 #   step [VAR=VALUE...] FILE [ARG...]  runs the script FILE with the ARGs and the VARs
@@ -17,6 +19,10 @@
 # setup sets the environment of a pull request event: GH_REPO=o/r, PR=1, COMMENT=true, and
 # GITHUB_STEP_SUMMARY and RUNNER_TEMP in $FAKE, its current directory. ROOT is the repository's
 # root. Pass a case's inputs to check as VAR=VALUE, so that none leaks into the next case.
+#
+# gh answers repos/o/r/pulls/1 with `pull`, from feat into main, its head $HEAD_SHA, and
+# repos/o/r/issues/1/comments with none. A PATH is what the check passes to gh api, without
+# per_page and page.
 
 # The case files call the functions below, which ShellCheck does not see, as it reads no case.
 # shellcheck disable=SC2329
@@ -26,10 +32,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+HEAD_SHA=0123456789abcdef0123456789abcdef01234567
 # The caller's git variables would point the cases' git at the caller's repository, as the GIT_DIR
 # that git rebase --exec sets does.
 unset "${!GIT_@}"
-export ROOT
+export ROOT PATH="$ROOT/tests:$PATH"
 cases=0 failed=0 file='' name=''
 
 # setup starts the case $1 afresh, in a directory of its own.
@@ -37,12 +44,26 @@ setup() {
     name=$1
     cases=$((cases + 1))
     export FAKE="$tmp/$cases"
-    mkdir -p "$FAKE/temp"
+    mkdir -p "$FAKE/api" "$FAKE/temp"
     cd "$FAKE"
     export GH_REPO=o/r PR=1 COMMENT=true GITHUB_EVENT_NAME=pull_request
     export GITHUB_STEP_SUMMARY="$FAKE/summary" RUNNER_TEMP="$FAKE/temp"
     export GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=7
     : >"$GITHUB_STEP_SUMMARY"
+    answer repos/o/r/pulls/1 "$(pull)"
+    answer repos/o/r/issues/1/comments '[]'
+}
+
+# answer leaves the JSON $2, and each after it, as gh api's pages for the path $1.
+answer() {
+    printf '%s\n' "${@:2}" >"$FAKE/api/${1//\//%}"
+}
+
+# pull prints the JSON of pull request #1 as setup answers it, with the fields of the JSON $1 over
+# its own.
+pull() {
+    jq -n --arg sha "$HEAD_SHA" --argjson over "${1:-null}" '{number: 1, title: "feat: add a check",
+        body: "", base: {ref: "main"}, head: {ref: "feat", sha: $sha}} * ($over // {})'
 }
 
 # fail reports that the case fails, for the reason $*.
