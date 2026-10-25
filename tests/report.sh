@@ -2,12 +2,13 @@
 # The cases of lib/report.sh, through a check that sources it.
 
 # probe runs a check.sh of the lines of stdin, between report_start probe and report_finish, with
-# the VAR=VALUE arguments. It declares the rule a, and fails the case where the check exits
+# the VAR=VALUE arguments. It declares the rules a and b, and fails the case where the check exits
 # non-zero.
 probe() {
     {
         printf '#!/bin/bash\nset -euo pipefail\n. %q\nreport_start probe\n' "$ROOT/lib/report.sh"
         printf "rule a 'Rule A' https://example.test/a 'Fix A.'\n"
+        printf "rule b 'Rule B' https://example.test/b 'Fix B.'\n"
         cat
         printf 'report_finish\n'
     } >"$FAKE/check.sh"
@@ -33,15 +34,42 @@ probe <<'CHECK'
 for i in $(seq 12); do finding a "Finding $i."; done
 CHECK
 warnings 10
-warns "::Finding 10.%0A$rule_a%0A2 more findings not annotated."
+warns "::Finding 10.%0A$rule_a%0AThe job summary holds 2 more findings."
 ! grep -qF 'Finding 11.' "$FAKE/out" || fail "annotated the 11th finding"
+
+setup summarizes
+probe <<'CHECK'
+finding a 'The title says 100% done.' src/x.go 12
+finding a $'Two\nlines.'
+CHECK
+summarizes "### probe
+
+This check warns and does not block the merge. It found 2 findings as of \`0123456\`.
+"
+summarizes "#### Rule A
+
+The rule: https://example.test/a
+
+- \`src/x.go:12\`: The title says 100% done.
+- Two
+  lines.
+
+How to fix it:
+
+Fix A."
+! grep -qF 'Rule B' "$GITHUB_STEP_SUMMARY" || fail "the summary has a section for Rule B"
+
+setup summarizes-a-clean-check
+probe </dev/null
+summarizes "merge. No findings remain as of \`0123456\`."
+warnings 0
 
 setup warns-on-an-error
 probe <<'CHECK'
 false
 finding a 'Never found.'
 CHECK
-warns '::warning::probe could not check #1: check.sh:6: false exited with 1'
+warns '::warning::probe could not check #1: check.sh:7: false exited with 1'
 warnings 1
 
 setup warns-on-an-unset-variable

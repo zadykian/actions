@@ -1,6 +1,7 @@
 # shellcheck shell=bash
 # The report of an action's check.sh, which sources it: its findings, as annotations on the pull
-# request. Sourcing it defines functions and sets the report_ variables, and runs nothing.
+# request and a job summary. Sourcing it defines functions and sets the report_ variables, and runs
+# nothing.
 #
 #   report_start NAME                  starts the report of the action NAME
 #   rule KEY TITLE URL FIX             declares the rule KEY
@@ -8,18 +9,35 @@
 #   report_finish                      reports the findings, and exits 0
 #   cannot_check REASON                warns that the check could not run, and exits 0
 #
-# report_start reads PR, the pull request's number: where it is empty, as on another event than
-# pull_request, it warns and exits 0. It then traps errors, so that a check runs under set -euo
-# pipefail and never fails the job: an error ends it in one warning, `NAME could not check #PR:
-# REASON`, and the status 0.
+# report_start reads GH_REPO, owner/name, and PR, the pull request's number: where PR is empty,
+# as on another event than pull_request, it warns and exits 0. It then traps errors, so that a
+# check runs under set -euo pipefail and never fails the job: an error ends it in one warning,
+# `NAME could not check #PR: REASON`, and the status 0.
 #
 # TITLE is a line of text, URL the rule's section of the skill, and FIX how to fix a finding, in
 # Markdown. MESSAGE says where and what is wrong, quoting it. FILE is a path from the repository's
 # root, and LINE a line of its new side: with both, the annotation shows in Files changed.
 #
-# report_finish prints a ::warning for each of the first findings, 10 at most, as GitHub shows 10
-# a step. The last says how many more are not annotated.
+# report_finish reads the SHA of the pull request's head, then:
 #
+# - writes the report to $GITHUB_STEP_SUMMARY. It opens with "This check warns and does not block
+#   the merge", then gives each rule with findings a section: its title, link, findings and fix;
+# - prints a ::warning for each of the first findings, 10 at most, as GitHub shows 10 a step. The
+#   last says how many more the summary holds.
+#
+# A check.sh, for one rule:
+#
+#   #!/bin/bash
+#   set -euo pipefail
+#   # shellcheck source=lib/report.sh
+#   . "$GITHUB_ACTION_PATH/../lib/report.sh"
+#   report_start pr-description
+#   rule empty 'The description is empty' "$SKILL#6-stack-mechanics-git--238" \
+#       "Describe the change under \`## Problem\` and \`## Changes\`."
+#   body=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .body)
+#   [ -n "${body//[[:space:]]/}" ] || finding empty "The description of #$PR is empty."
+#   report_finish
+
 # The rules by index: their keys, titles, links and fixes.
 report_keys=() report_titles=() report_urls=() report_fixes=()
 # The findings by index: their rules' indices, messages, files and lines.
@@ -91,7 +109,7 @@ report_annotate() {
         rule=${report_rules[i]}
         message="${report_messages[i]}"$'\n'"The rule: ${report_urls[rule]}"
         if [ $((i + 1)) = "$1" ] && [ "$count" -gt "$1" ]; then
-            message+=$'\n'"$(report_plural $((count - $1)) 'more finding') not annotated."
+            message+=$'\n'"The job summary holds $(report_plural $((count - $1)) 'more finding')."
         fi
         properties="title=$(report_escape "$report_name: ${report_titles[rule]}" property)"
         if [ -n "${report_files[i]}" ]; then
@@ -102,8 +120,33 @@ report_annotate() {
     done
 }
 
+# report_text prints the report in Markdown, as of the head commit $1.
+report_text() {
+    local count=${#report_messages[@]} i j at found
+    printf '### %s\n\nThis check warns and does not block the merge. ' "$report_name"
+    if [ "$count" = 0 ]; then
+        printf "No findings remain as of \`%s\`.\n" "$1"
+        return
+    fi
+    printf "It found %s as of \`%s\`.\n" "$(report_plural "$count" finding)" "$1"
+    for i in "${!report_keys[@]}"; do
+        found=''
+        for j in "${!report_messages[@]}"; do
+            [ "${report_rules[j]}" = "$i" ] || continue
+            at=${report_files[j]}${report_lines[j]:+:${report_lines[j]}}
+            found+="- ${at:+\`$at\`: }${report_messages[j]//$'\n'/$'\n'  }"$'\n'
+        done
+        [ -z "$found" ] || printf '\n#### %s\n\nThe rule: %s\n\n%s\nHow to fix it:\n\n%s\n' \
+            "${report_titles[i]}" "${report_urls[i]}" "$found" "${report_fixes[i]}"
+    done
+}
+
 # report_finish reports the findings, and exits 0.
 report_finish() {
+    local head report
+    head=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .head.sha)
+    report=$(report_text "${head:0:7}")
+    printf '%s\n' "$report" >>"${GITHUB_STEP_SUMMARY:-/dev/stdout}"
     report_annotate 10
     exit 0
 }

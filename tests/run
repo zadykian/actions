@@ -14,6 +14,7 @@
 #   prints TEXT                   its output holds TEXT
 #   warns TEXT                    one of its ::warning lines holds TEXT
 #   warnings N                    it printed N ::warning lines
+#   summarizes TEXT               the job summary holds TEXT
 #   fail REASON                   fails the case, which goes on
 #
 # setup sets the environment of a pull request event: GH_REPO=o/r, PR=1, COMMENT=true, and
@@ -64,6 +65,12 @@ answer() {
 pull() {
     jq -n --arg sha "$HEAD_SHA" --argjson over "${1:-null}" '{number: 1, title: "feat: add a check",
         body: "", base: {ref: "main"}, head: {ref: "feat", sha: $sha}} * ($over // {})'
+}
+
+# summarizes checks that the job summary holds the text $1.
+summarizes() {
+    [[ $(cat "$GITHUB_STEP_SUMMARY") == *"$1"* ]] ||
+        fail "no summary '$1': $(cat "$GITHUB_STEP_SUMMARY")"
 }
 
 # fail reports that the case fails, for the reason $*.
