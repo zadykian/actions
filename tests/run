@@ -1,6 +1,6 @@
 #!/bin/bash
 # Runs the cases of each tests/NAME.sh, or of those named, `tests/run [NAME...]`, and fails where
-# any case fails. tests/gh stands in for gh: it answers each case's canned JSON. It needs jq.
+# any case fails. tests/gh, the fake gh, answers each case's canned JSON. It needs git and jq.
 #
 # A case file is bash, which tests/run sources under set -euo pipefail: a command that fails stops
 # the run. Its cases call these functions, each case setup first:
@@ -12,6 +12,7 @@
 #   check NAME [VAR=VALUE...]     runs NAME/check.sh as its action.yml step does, with the VARs;
 #                                 the case fails where it exits non-zero, as that fails the job
 #   step [VAR=VALUE...] FILE [ARG...]  runs the script FILE with the ARGs and the VARs
+#   exits N                       the last step exited with the status N
 #   prints TEXT                   its output holds TEXT
 #   warns TEXT                    one of its ::warning lines holds TEXT
 #   warnings N                    it printed N ::warning lines
@@ -22,7 +23,8 @@
 #
 # setup sets the environment of a pull request event: GH_REPO=o/r, PR=1, COMMENT=true, and
 # GITHUB_STEP_SUMMARY and RUNNER_TEMP in $FAKE, its current directory. ROOT is the repository's
-# root. Pass a case's inputs to check as VAR=VALUE, so that none leaks into the next case.
+# root. Pass a case's inputs to check as VAR=VALUE, so that none leaks into the next case. git
+# reads no config of the user's, and commits as test.
 #
 # gh answers repos/o/r/pulls/1 with `pull`, from feat into main, its head $HEAD_SHA, and
 # repos/o/r/issues/1/comments with none. A PATH is what the check passes to gh api, without
@@ -40,7 +42,9 @@ HEAD_SHA=0123456789abcdef0123456789abcdef01234567
 # The caller's git variables would point the cases' git at the caller's repository, as the GIT_DIR
 # that git rebase --exec sets does.
 unset "${!GIT_@}"
-export ROOT PATH="$ROOT/tests:$PATH"
+export ROOT PATH="$ROOT/tests:$PATH" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+export GIT_AUTHOR_NAME=test GIT_AUTHOR_EMAIL=test@example.com
+export GIT_COMMITTER_NAME=test GIT_COMMITTER_EMAIL=test@example.com
 cases=0 failed=0 file='' name=''
 
 # setup starts the case $1 afresh, in a directory of its own.
@@ -115,6 +119,11 @@ step() {
 check() {
     step GITHUB_ACTION_PATH="$ROOT/$1" "${@:2}" "$ROOT/$1/check.sh"
     [ "$STATUS" = 0 ] || fail "$1/check.sh exited with $STATUS: $(cat "$FAKE/out")"
+}
+
+# exits checks that the last step exited with the status $1.
+exits() {
+    [ "$STATUS" = "$1" ] || fail "exited with $STATUS, not $1: $(cat "$FAKE/out")"
 }
 
 # prints checks that the last step's output holds the text $1.

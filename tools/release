@@ -1,0 +1,25 @@
+#!/bin/bash
+# Releases the tag $1, vMAJOR.MINOR.PATCH, as a GitHub Release of $GH_REPO, whose notes are the
+# headers of its commits. It refuses a tag of another form, and publishes nothing then. It runs in
+# a clone of the repository, and needs git and gh.
+
+set -euo pipefail
+
+# refuse prints the reason $* of the refusal as an error, and exits with status 1.
+refuse() {
+    echo "::error::$*"
+    exit 1
+}
+
+tag=${1-}
+[[ $tag =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
+    refuse "$tag is not a version tag, vMAJOR.MINOR.PATCH, as v1.2.3."
+git fetch --quiet --no-tags --force origin '+refs/tags/v*:refs/tags/v*'
+git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || refuse "origin has no tag $tag."
+commit=$(git rev-parse "refs/tags/$tag^{commit}")
+log=$(git log --reverse --format='- %s (%h)' "$commit")
+
+notes=$(mktemp)
+trap 'rm -f "$notes"' EXIT
+printf '%s\n' "$log" | tee "$notes"
+gh release create "$tag" --verify-tag --title "$tag" --notes-file "$notes"
