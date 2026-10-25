@@ -9,6 +9,7 @@
 #   check NAME [VAR=VALUE...]     runs NAME/check.sh as its action.yml step does, with the VARs;
 #                                 the case fails where it exits non-zero, as that fails the job
 #   step [VAR=VALUE...] FILE [ARG...]  runs the script FILE with the ARGs and the VARs
+#   prints TEXT                   its output holds TEXT
 #   warns TEXT                    one of its ::warning lines holds TEXT
 #   warnings N                    it printed N ::warning lines
 #   fail REASON                   fails the case, which goes on
@@ -62,6 +63,11 @@ step() {
 check() {
     step GITHUB_ACTION_PATH="$ROOT/$1" "${@:2}" "$ROOT/$1/check.sh"
     [ "$STATUS" = 0 ] || fail "$1/check.sh exited with $STATUS: $(cat "$FAKE/out")"
+}
+
+# prints checks that the last step's output holds the text $1.
+prints() {
+    [[ $(cat "$FAKE/out") == *"$1"* ]] || fail "no output '$1': $(cat "$FAKE/out")"
 }
 
 # warns checks that one of the last step's ::warning lines holds the text $1.

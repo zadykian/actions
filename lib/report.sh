@@ -6,6 +6,12 @@
 #   rule KEY TITLE URL FIX             declares the rule KEY
 #   finding KEY MESSAGE [FILE [LINE]]  records a finding of the rule KEY
 #   report_finish                      reports the findings, and exits 0
+#   cannot_check REASON                warns that the check could not run, and exits 0
+#
+# report_start reads PR, the pull request's number: where it is empty, as on another event than
+# pull_request, it warns and exits 0. It then traps errors, so that a check runs under set -euo
+# pipefail and never fails the job: an error ends it in one warning, `NAME could not check #PR:
+# REASON`, and the status 0.
 #
 # TITLE is a line of text, URL the rule's section of the skill, and FIX how to fix a finding, in
 # Markdown. MESSAGE says where and what is wrong, quoting it. FILE is a path from the repository's
@@ -18,11 +24,31 @@
 report_keys=() report_titles=() report_urls=() report_fixes=()
 # The findings by index: their rules' indices, messages, files and lines.
 report_rules=() report_messages=() report_files=() report_lines=()
-report_name=''
+report_name='' report_error=''
 
-# report_start starts the report of the action $1.
+# report_start starts the report of the action $1, on the pull request $PR.
 report_start() {
     report_name=$1
+    if [ -z "${PR-}" ]; then
+        echo "::warning::$1 checks a pull request, and the ${GITHUB_EVENT_NAME-} event has none:" \
+            "run it on pull_request."
+        exit 0
+    fi
+    set -E
+    trap 'report_error="${BASH_SOURCE[0]##*/}:$LINENO: $BASH_COMMAND exited with $?"' ERR
+    trap 'report_exit $?' EXIT
+}
+
+# cannot_check warns that the check could not run, for the reason $1, and exits 0.
+cannot_check() {
+    printf '::warning::%s could not check #%s: %s\n' "$report_name" "${PR-}" "$(report_escape "$1")"
+    exit 0
+}
+
+# report_exit turns the check's exit with the status $1, other than 0, into a warning and the
+# status 0.
+report_exit() {
+    [ "$1" = 0 ] || cannot_check "${report_error:-the check exited with $1}"
 }
 
 # rule declares the rule $1, titled $2, which the skill's section at the URL $3 sets, and whose
@@ -39,8 +65,7 @@ finding() {
         report_rules+=("$i") report_messages+=("$2") report_files+=("${3-}") report_lines+=("${4-}")
         return 0
     done
-    echo "report.sh: no rule $1 is declared" >&2
-    return 1
+    cannot_check "no rule $1 is declared, for the finding: $2"
 }
 
 # report_plural prints the count $1 of the noun $2: 1 finding, or 2 findings.
