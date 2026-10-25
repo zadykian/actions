@@ -4,7 +4,8 @@
 # shellcheck disable=SC2016
 
 # commits answers the commits of pull request #1, one of each message $@, in pages of 100. The
-# Nth's SHA is N seven times over, as 1111111. It has one parent, and changes no file.
+# Nth's SHA is N seven times over, as 1111111. It has one parent, and changes no file, as the pull
+# request changes none.
 commits() {
     local list pages
     list=$(jq -nc '[$ARGS.positional | to_entries[] |
@@ -14,12 +15,13 @@ commits() {
     for sha in $(jq -r '.[].sha' <<<"$list"); do
         answer "repos/o/r/commits/$sha" '{"files": []}'
     done
+    answer repos/o/r/pulls/1/files '[]'
 }
 
 # atomic runs the check with the action's default inputs, and the VAR=VALUE arguments over them.
 atomic() {
     check atomic-commits TYPES='feat fix refactor perf test docs style build ci chore revert' \
-        MAX_COMMIT_LINES=100 EXCLUDE=$'**/go.sum\n**/vendor/**' "$@"
+        MAX_COMMIT_LINES=100 MAX_PR_LINES=300 EXCLUDE=$'**/go.sum\n**/vendor/**' "$@"
 }
 
 setup passes-clean-commits
@@ -122,6 +124,7 @@ setup warns-once-on-a-merge-commit
 answer repos/o/r/pulls/1 "$(pull '{"base": {"ref": "feat/x-1"}}')"
 answer repos/o/r/pulls/1/commits '[{"sha": "abcdef0123", "parents": [{}, {}],
     "commit": {"message": "Merge branch '\''main'\'' into feat"}}]'
+answer repos/o/r/pulls/1/files '[]'
 atomic
 warns "Commit \`abcdef0 Merge branch 'main' into feat\` is a merge commit, of 2 parents."
 warnings 1
@@ -155,3 +158,14 @@ warnings 2
 atomic MAX_COMMIT_LINES=101 EXCLUDE=go.sum
 warns 'Commit `2222222 feat: add z` changes 600 lines'
 warnings 1
+
+setup warns-on-a-large-pull-request
+commits 'feat: add y'
+answer repos/o/r/pulls/1/files '[{"filename": "a", "additions": 200, "deletions": 0}]' \
+    '[{"filename": "b", "additions": 51, "deletions": 50},
+    {"filename": "go.sum", "additions": 900, "deletions": 0}]'
+atomic
+warns '#1 changes 301 lines against `main`.'
+warnings 1
+atomic MAX_PR_LINES=301
+warnings 0

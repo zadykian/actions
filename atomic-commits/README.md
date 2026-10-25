@@ -35,8 +35,9 @@ code.
 
 ## What it checks
 
-Each finding names the commit and quotes what is wrong. It links to the rule's section of the
-skill, and says how to fix it, with the skill's commands for rewording a commit.
+Each finding names the commit, or the pull request, and quotes what is wrong. It links to the
+rule's section of the skill, and says how to fix it, with the skill's commands for rewording a
+commit.
 
 Each commit's message, as [section 3][s3] sets it:
 
@@ -60,11 +61,13 @@ Each commit's place in the branch:
 
 Either finding is the commit's only one, as its fix folds the commit in or drops it.
 
-Each commit's size, as [the hard rules][rules] set it:
+The sizes, as [the hard rules][rules] set them:
 
 - `commit-size`: a commit changes `max-commit-lines` lines at most, its insertions and deletions in
   the paths that `exclude` does not match. A purely mechanical commit, such as a rename, may be
   larger where its body says `mechanical`.
+- `pr-size`: the pull request changes `max-pr-lines` lines at most against its base, in the paths
+  that `exclude` does not match.
 
 GitHub lists the first 250 commits of a pull request alone. Past them, the `commit-count` finding
 says how many commits the check skipped.
@@ -76,6 +79,8 @@ says how many commits the check skipped.
 - `types`, `feat fix refactor perf test docs style build ci chore revert` by default: the types
   that a header may take, separated by spaces.
 - `max-commit-lines`, `100` by default: the changed lines that a commit may hold.
+- `max-pr-lines`, `300` by default: the changed lines that the pull request may hold against its
+  base.
 - `exclude`: globs of the paths that no count of changed lines takes in, one a line, as git's
   `:(glob)` pathspecs match them. Its default is the list of [section 7][s7]: lockfiles, generated
   code and vendored dependencies.

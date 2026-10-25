@@ -1,6 +1,7 @@
 #!/bin/bash
 # Warns where the commits of pull request $PR of $GH_REPO break the rules of the atomic-commits
-# skill. TYPES, MAX_COMMIT_LINES and EXCLUDE hold the inputs that action.yml describes.
+# skill. TYPES, MAX_COMMIT_LINES, MAX_PR_LINES and EXCLUDE hold the inputs that action.yml
+# describes.
 
 set -euo pipefail
 # A $(...) fails as its command fails. A length counts characters, not bytes.
@@ -132,6 +133,9 @@ rule commit-size "A commit is over $MAX_COMMIT_LINES changed lines" "$skill#hard
 into commits of one logical change each, of $MAX_COMMIT_LINES changed lines at most. A purely \
 mechanical commit, such as a rename, a move, formatting or regenerated code, may be larger where \
 its body says so: \`mechanical\`. $reword"
+rule pr-size "The pull request is over $MAX_PR_LINES changed lines" "$skill#hard-rules" "Split it \
+into a stack of pull requests, each of $MAX_PR_LINES changed lines at most against its own base. \
+Section 5 of the skill says where to cut it, and section 6 how to stack the branches."
 
 # Each commit, as its SHA and its counts of parents and lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] | {sha,
@@ -163,4 +167,6 @@ done <<<"$commits"
 # GitHub lists 250 commits of a pull request at most.
 [ "$total" -le "$listed" ] || finding commit-count "#$PR has $total commits, and GitHub lists the \
 first $listed alone: the check skipped the other $((total - listed))."
+size=$(changed "repos/$GH_REPO/pulls/$PR/files?per_page=100" '.[]')
+[ "$size" -le "$MAX_PR_LINES" ] || finding pr-size "#$PR changes $size lines against \`$base\`."
 report_finish
