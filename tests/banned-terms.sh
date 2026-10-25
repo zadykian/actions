@@ -136,6 +136,16 @@ check banned-terms EXCLUDE=$'**/vendor/**\n*.md'
 warns "file=a.go,line=1::The added line says \`helper\`"
 warnings 1
 
+start notes-each-file-without-a-patch
+files '{"filename": "logo.png", "status": "added", "changes": 0}' \
+    '{"filename": "data.json", "status": "modified", "changes": 9000}' \
+    '{"filename": "old.png", "status": "removed", "changes": 0}'
+check banned-terms
+warns '::warning title=banned-terms%3A Files with no patch,file=logo.png::GitHub gives no patch'
+warns 'file=data.json::GitHub gives no patch of the file, so its lines go unread.'
+warnings 2
+summarizes '#### Files with no patch'
+
 # setup answers no commits: gh api fails, as on GitHub's 404.
 setup warns-where-it-cannot-read
 check banned-terms

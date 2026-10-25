@@ -30,6 +30,10 @@ config=$(jq -Rnr '[inputs | select(test("^\\s*(#|$)") | not)
         rule "$key" "$title" "$skill" "$hint"
     done
 } <<<"$config"
+readme=https://github.com/zadykian/actions/blob/main/banned-terms/README.md
+rule unread 'Files with no patch' "$readme#limits" "GitHub gives no patch of a binary file, nor of \
+a large one, so the check reads its path alone. Check the text that it adds by hand, or skip it \
+with \`exclude\`."
 
 # The jq functions of a scan. terms gives each term of $index that the text . holds, once: its
 # tokens split at each character other than a letter or a digit, then at each hump of camelCase,
@@ -37,7 +41,7 @@ config=$(jq -Rnr '[inputs | select(test("^\\s*(#|$)") | not)
 # find gives a finding of each, a line of KEY, MESSAGE, FILE and LINE, separated by tabs. file,
 # pull and commit find those of a file, a pull request and a commit, line by line. file reads the
 # path of a file added or renamed, and numbers each line of the new side from its hunk's header,
-# @@ -OLD +NEW @@, to read the lines added.
+# @@ -OLD +NEW @@, to read the lines added. A file that changes with no patch takes a note.
 defs='($index | keys | join("|")) as $any
 | def terms: select(test($any; "i"))
     | gsub("(?<a>[a-z0-9])(?<b>[A-Z])"; "\(.a) \(.b)")
@@ -47,12 +51,16 @@ defs='($index | keys | join("|")) as $any
     | if length > 120 then .[:119] + "…" else . end
     | ("`" * ([scan("`+") | length] + [0] | max + 1)) as $fence
     | if test("`") then "\($fence) \(.) \($fence)" else "\($fence)\(.)\($fence)" end;
+  def record: map(tostring | gsub("[\t\n]"; " ")) | join("\t");
   def find($where; $file; $line): . as $text | terms
-    | [$index[.], "\($where) says `\(.)`: \($text | code)", $file, $line]
-    | map(tostring | gsub("[\t\n]"; " ")) | join("\t");
+    | [$index[.], "\($where) says `\(.)`: \($text | code)", $file, $line] | record;
   def file: .filename as $path | .status as $status
     | ($path | select($status == "added" or $status == "renamed")
         | find("The path of the \($status) file"; $path; "")),
+    (select((.patch // "") == "" and $status != "removed"
+        and ($status != "renamed" or .changes > 0))
+        | ["unread", "GitHub gives no patch of the file, so its lines go unread.", $path, ""]
+        | record),
     (foreach (.patch // "" | split("\n")[]) as $row ({n: 0};
         if $row | startswith("@@") then
             {n: ($row | capture("^@@ -[0-9,]+ \\+(?<n>[0-9]+)").n | tonumber)}
