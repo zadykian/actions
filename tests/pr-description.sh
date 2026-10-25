@@ -126,3 +126,27 @@ warnings 1
 describe warns-on-a-stack-without-its-place "$clean"$'\n\n## Stack\n\nBase: #41.'
 warns "\`## Stack\`, line 9 of the description, does not say \`PR N of M\`: it opens \`Base: #41.\`"
 warnings 1
+
+footer=$'\n\nBREAKING CHANGE: the v1 inputs are gone.'
+by=$'\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)'
+describe passes-a-breaking-change "$clean$footer" '{"title": "feat(api)!: drop the v1 inputs"}'
+warnings 0
+
+describe passes-a-footer-and-an-attribution "$clean${footer/ /-}$by" '{"title": "feat!: drop it"}'
+warnings 0
+
+describe passes-an-attribution "$clean$by<!-- end -->" '{"title": "fix: keep it!"}'
+warnings 0
+
+describe warns-on-a-bang-without-a-footer "$clean" '{"title": "feat(api)!: drop the v1 inputs"}'
+warns "The title \`feat(api)!: drop the v1 inputs\` has \`!\`, but the description does not end in"
+warns "a \`BREAKING CHANGE:\` footer: it ends in \`- Add it.\`"
+warnings 1
+
+describe warns-on-text-after-the-footer "$clean$footer"$'\n\nThanks!' '{"title": "feat!: drop it"}'
+warns "does not end in a \`BREAKING CHANGE:\` footer: it ends in \`Thanks!\`"
+warnings 1
+
+describe warns-on-a-footer-without-a-bang "$clean$footer"
+warns "The description has a \`BREAKING CHANGE:\` footer, line 9, but the title"
+warnings 1

@@ -42,6 +42,7 @@ description.
 | `changes` | `## Changes` is missing, comes before Problem, or holds no bullet |
 | `sections` | A heading other than the three, at any level, or one out of order or repeated |
 | `stack` | Into a branch other than the default, with no `## Stack`; or Stack lacks `PR N of M` |
+| `breaking` | The title has `!`, but no `BREAKING CHANGE:` footer ends the body; or vice versa |
 
 ## Inputs
 
