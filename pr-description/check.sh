@@ -84,6 +84,8 @@ rule empty 'The description is empty' "$url" "Describe the pull request in the f
 
 $(template "$problem_md" "$changes_md" "$stack_md" "$footer_md")"
 
+max=${MAX_WORDS:-200}
+[[ $max =~ ^[0-9]+$ ]] || cannot_check "max-words is $(quote "$max"), not a count of words."
 pull=$(gh api "repos/$GH_REPO/pulls/$PR")
 # GitHub keeps the line ends that the browser sent, \r\n.
 body=$(jq -r '.body // ""' <<<"$pull")
@@ -265,4 +267,15 @@ elif [[ ! $title =~ $bang ]] && [ "$footer" != -1 ]; then
     finding breaking "The description has a \`BREAKING CHANGE:\` footer, line $((footer + 1)), \
 but the title $(quote "$title") has no \`!\`."
 fi
+
+rule length "The description is over $max words" "$url" "Cut the description to $max words, \
+outside code blocks and HTML comments: one to three sentences of problem, and a bullet for each \
+high-level change. Leave the details to the commits.
+
+$(template "$problem_md" "$changes_md")"
+prose=''
+for i in "${!kinds[@]}"; do [ "${kinds[i]}" = code ] || prose+=${texts[i]}$'\n'; done
+count=$(($(words "$prose")))
+((count <= max)) || finding length "The description holds $count words, outside code blocks and \
+HTML comments: $((count - max)) over $max."
 report_finish

@@ -150,3 +150,19 @@ warnings 1
 describe warns-on-a-footer-without-a-bang "$clean$footer"
 warns "The description has a \`BREAKING CHANGE:\` footer, line 9, but the title"
 warnings 1
+
+pad=$(printf ' word%.0s' $(seq 192))
+edge=$'## Problem\n\nA check is missing.'"$pad"$'\n\n```\nnone of these count\n```\n<!-- nor -->'
+describe passes-200-words "$edge$changes"
+warnings 0
+
+describe warns-on-201-words "$edge"$' One.'"$changes"
+warns "The description holds 201 words, outside code blocks and HTML comments: 1 over 200."
+warnings 1
+
+describe warns-over-max-words "$clean" '' MAX_WORDS=7
+warns "The description holds 8 words, outside code blocks and HTML comments: 1 over 7."
+
+describe warns-on-a-max-words-of-no-count "$clean" '' MAX_WORDS=many
+warns "::warning::pr-description could not check #1: max-words is \`many\`, not a count of words."
+warnings 1

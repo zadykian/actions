@@ -16,6 +16,9 @@ inputs:
   comment:
     description: true keeps one comment of the report on the pull request, false the summary alone.
     default: 'true'
+  max-words:
+    description: The most words the description may hold, outside code blocks and HTML comments.
+    default: '200'
 
 runs:
   using: composite
@@ -27,4 +30,5 @@ runs:
         GH_REPO: ${{ github.repository }}
         PR: ${{ github.event.pull_request.number }}
         COMMENT: ${{ inputs.comment }}
+        MAX_WORDS: ${{ inputs.max-words }}
       run: '"$GITHUB_ACTION_PATH/check.sh"'

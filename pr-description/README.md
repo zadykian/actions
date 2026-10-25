@@ -43,6 +43,7 @@ description.
 | `sections` | A heading other than the three, at any level, or one out of order or repeated |
 | `stack` | Into a branch other than the default, with no `## Stack`; or Stack lacks `PR N of M` |
 | `breaking` | The title has `!`, but no `BREAKING CHANGE:` footer ends the body; or vice versa |
+| `length` | The description holds over `max-words` words, outside code blocks and HTML comments |
 
 ## Inputs
 
@@ -50,6 +51,10 @@ description.
 | --- | --- | --- |
 | `token` | `${{ github.token }}` | The token that reads the pull request and comments on it |
 | `comment` | `true` | `true` keeps one comment of the report on the pull request |
+| `max-words` | `200` | The most words the description may hold |
+
+A word is a run of characters between spaces, other than punctuation alone, such as a bullet's
+`-`.
 
 ## Usage
 
