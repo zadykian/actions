@@ -205,4 +205,20 @@ for i in "${!h_texts[@]}"; do
         last=$k
     fi
 done
+
+rule stack 'A pull request of a stack has no Stack section that says PR N of M' "$url" "In each \
+pull request of a stack, say where it stands: \`PR N of M\`, then its base and the next pull \
+request. One into a branch other than the default is part of a stack.
+
+$(template "$stack_md")"
+base=$(jq -r .base.ref <<<"$pull") main=$(jq -r .base.repo.default_branch <<<"$pull")
+s=$(first Stack) of='PR [0-9]+ of [0-9]+'
+if [ "$s" = -1 ]; then
+    [ "$base" = "$main" ] || finding stack "#$PR is into $(quote "$base"), not the default branch \
+$(quote "$main"), and its description has no \`## Stack\` heading."
+elif [[ ! $(section "$s") =~ $of ]]; then
+    opening=$(section "$s" | grep -m 1 '[^[:blank:]]' || true)
+    finding stack "\`## Stack\`, line $((h_starts[s] + 1)) of the description, does not say \
+\`PR N of M\`${opening:+: it opens $(quote "$opening")}."
+fi
 report_finish

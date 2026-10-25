@@ -41,6 +41,7 @@ description.
 | `problem` | `## Problem` is missing, has text or a heading before it, or holds no prose |
 | `changes` | `## Changes` is missing, comes before Problem, or holds no bullet |
 | `sections` | A heading other than the three, at any level, or one out of order or repeated |
+| `stack` | Into a branch other than the default, with no `## Stack`; or Stack lacks `PR N of M` |
 
 ## Inputs
 

@@ -110,3 +110,19 @@ warnings 1
 
 describe ignores-headings-in-fences "$clean"$'\n\n```sh\n# Notes\n```\n\n~~~\nNotes\n---\n~~~'
 warnings 0
+
+stack=$'\n\n## Stack\n\nPR 2 of 2. Base: #41.'
+describe passes-a-stacked-pull-request "$clean$stack" '{"base": {"ref": "feat-1"}}'
+warnings 0
+
+describe passes-a-default-branch-of-its-own "$clean" '{"base": {"ref": "trunk",
+    "repo": {"default_branch": "trunk"}}}'
+warnings 0
+
+describe warns-on-a-stack-without-a-section "$clean" '{"base": {"ref": "feat-1"}}'
+warns "#1 is into \`feat-1\`, not the default branch \`main\`, and its description has no"
+warnings 1
+
+describe warns-on-a-stack-without-its-place "$clean"$'\n\n## Stack\n\nBase: #41.'
+warns "\`## Stack\`, line 9 of the description, does not say \`PR N of M\`: it opens \`Base: #41.\`"
+warnings 1
