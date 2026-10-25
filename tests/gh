@@ -3,24 +3,30 @@
 # [--paginate] [--jq FILTER]` prints what the case answers for PATH, with tests/run's answer: the
 # first page, or with --paginate each page, through --jq's filter as gh applies it. PATH drops its
 # per_page and page parameters, and a GET's fields join its query. A PATH with no answer fails as
-# GitHub's 404 does.
+# GitHub's 404 does. `gh api graphql -f query=QUERY` reads too: it prints the answer for graphql,
+# whatever QUERY asks.
 #
 # A write, of any other method, answers {}: `gh api -X METHOD PATH [-f KEY=VALUE]... [--input
 # FILE]` logs METHOD, PATH and the body, the fields or the JSON of FILE, a line of JSON in
-# $FAKE/writes. A call that tests/run's refuse names fails as GitHub's refusal does, and writes
-# nothing. `gh release create ... --notes-file FILE` leaves FILE in $FAKE/notes. $FAKE/calls logs
-# every call.
+# $FAKE/writes. `gh pr comment N --body BODY` writes as `gh api repos/$GH_REPO/issues/N/comments
+# -f body=BODY` does. A call that tests/run's refuse names fails as GitHub's refusal does, and
+# writes nothing. `gh release create ... --notes-file FILE` leaves FILE in $FAKE/notes.
+# $FAKE/calls logs every call.
 
 set -euo pipefail
 
 printf '%s\n' "$*" >>"$FAKE/calls"
+# A comment on a pull request is one on its issue.
+if [ "${1-} ${2-} ${4-}" = 'pr comment --body' ]; then
+    set -- api "repos/$GH_REPO/issues/$3/comments" -f "body=$5"
+fi
 # gh release create's notes, for the case to read.
 if [ "${1-} ${2-}" = 'release create' ]; then
     while [ "$1" != --notes-file ]; do shift; done
     cp -- "$2" "$FAKE/notes"
     exit 0
 elif [ "${1-}" != api ]; then
-    echo "gh: the fake answers gh api and gh release create alone, not gh $*" >&2
+    echo "gh: the fake answers gh api, gh pr comment and gh release create alone, not gh $*" >&2
     exit 1
 fi
 shift
@@ -61,7 +67,8 @@ case $status in
 404) echo 'gh: Not Found (HTTP 404)' >&2 && exit 1 ;;
 *) echo "gh: Resource not accessible by integration (HTTP $status)" >&2 && exit 1 ;;
 esac
-if [ "$method" != GET ]; then
+# GitHub's GraphQL API takes a query by POST, as a read.
+if [ "$method" != GET ] && [ "$key" != graphql ]; then
     for field in "${fields[@]}"; do
         args+=(--arg "${field%%=*}" "${field#*=}")
     done

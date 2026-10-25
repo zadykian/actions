@@ -20,17 +20,26 @@ same 'gh: Not Found (HTTP 404): the case answers no repos/o/r/x' gh api repos/o/
 answer repos/o/r/pulls/1 "$(pull '{"title": "fix: x", "head": {"ref": "fix"}}')"
 same "fix: x fix $HEAD_SHA" gh api repos/o/r/pulls/1 --jq '"\(.title) \(.head.ref) \(.head.sha)"'
 
+setup answers-graphql
+answer graphql '{"data": {"repository": {"deleteBranchOnMerge": true}}}'
+same true gh api graphql -f query='{ repository(owner: "o", name: "r") { deleteBranchOnMerge } }' \
+    --jq .data.repository.deleteBranchOnMerge
+writes 0
+
 setup logs-the-writes
 gh api -X PATCH repos/o/r/issues/comments/5 --input - <<<'{"body": "Edited."}' >/dev/null
 gh api repos/o/r/issues/1/comments -f body=New. >/dev/null
+gh pr comment 1 --body 'On the pull request.' >/dev/null
 wrote PATCH repos/o/r/issues/comments/5 Edited.
 wrote POST repos/o/r/issues/1/comments New.
-writes 2
+wrote POST repos/o/r/issues/1/comments 'On the pull request.'
+writes 3
 
 setup refuses-a-write
 refuse POST repos/o/r/issues/1/comments
 same 'gh: Resource not accessible by integration (HTTP 403)' \
     gh api repos/o/r/issues/1/comments -f body=x
+same 'gh: Resource not accessible by integration (HTTP 403)' gh pr comment 1 --body x
 refuse GET repos/o/r/pulls/1 404
 same 'gh: Not Found (HTTP 404)' gh api repos/o/r/pulls/1
 writes 0
