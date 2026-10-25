@@ -1,7 +1,7 @@
 #!/bin/bash
-# Warns where the commits of pull request $PR of $GH_REPO break the rules of the atomic-commits
-# skill. TYPES, MAX_COMMIT_LINES, MAX_PR_LINES and EXCLUDE hold the inputs that action.yml
-# describes.
+# Warns where the commits, the size or the title of pull request $PR of $GH_REPO break the rules
+# of the atomic-commits skill. TYPES, MAX_COMMIT_LINES, MAX_PR_LINES and EXCLUDE hold the inputs
+# that action.yml describes.
 
 set -euo pipefail
 # A $(...) fails as its command fails. A length counts characters, not bytes.
@@ -77,6 +77,7 @@ message() {
     elif $footer && ! $bang; then
         finding breaking "Commit $1: a \`BREAKING CHANGE:\` footer, but no \`!\` in the header."
     fi
+    if $bang || $footer; then breaking+="${breaking:+, }$1"; fi
     if [[ ${lines[0]%%[:(!]*} == revert ]] && ! $refs; then
         finding revert "Commit $1: no \`Refs:\` footer names the reverted commit."
     fi
@@ -84,8 +85,8 @@ message() {
 
 report_start atomic-commits
 skill=https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md
-pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.base.ref) \(.commits // 0)"')
-read -r base total <<<"$pull"
+pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.base.ref) \(.commits // 0) \(.title)"')
+read -r base total title <<<"$pull"
 read -r -d '' -a allowed <<<"$TYPES" || true
 header_form="^($(IFS='|' && echo "${allowed[*]}"))(\([a-z0-9._/-]+\))?!?: [^ ]"
 # How to reword a commit, as section 4 of the skill says.
@@ -136,6 +137,15 @@ its body says so: \`mechanical\`. $reword"
 rule pr-size "The pull request is over $MAX_PR_LINES changed lines" "$skill#hard-rules" "Split it \
 into a stack of pull requests, each of $MAX_PR_LINES changed lines at most against its own base. \
 Section 5 of the skill says where to cut it, and section 6 how to stack the branches."
+stack=$skill#6-stack-mechanics-git--238
+rule pr-title 'The PR title is not a Conventional Commits header' "$stack" "Retitle it as a \
+commit header, as a squash merge turns the title into the commit that lands: \
+\`gh pr edit $PR --title '<type>(<scope>): <description>'\`."
+rule pr-breaking 'A breaking commit, but no ! in the PR title' "$stack" "Put a \`!\` before the \
+title's colon, and end the description with a \`BREAKING CHANGE:\` footer: \
+\`gh pr edit $PR --title '<type>(<scope>)!: <description>'\`."
+
+header "The PR title \`$title\`" "$title" pr-title
 
 # Each commit, as its SHA and its counts of parents and lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] | {sha,
@@ -144,7 +154,7 @@ commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq
 [ -n "$commits" ] || cannot_check 'GitHub lists none of its commits.'
 # A commit to fold in or rebase away gets that finding alone.
 temporary='^((fixup|squash|amend)!|wip([^[:alnum:]]|$))'
-listed=0
+listed=0 breaking=''
 while read -r sha parents count; do
     lines=()
     for ((i = 0; i < count; i++)); do IFS= read -r line && lines+=("$line"); done
@@ -167,6 +177,10 @@ done <<<"$commits"
 # GitHub lists 250 commits of a pull request at most.
 [ "$total" -le "$listed" ] || finding commit-count "#$PR has $total commits, and GitHub lists the \
 first $listed alone: the check skipped the other $((total - listed))."
+if [ -n "$breaking" ] && [[ ${title%%: *} != *! ]]; then
+    finding pr-breaking "The PR title \`$title\` has no \`!\`, but it holds breaking commits: \
+$breaking."
+fi
 size=$(changed "repos/$GH_REPO/pulls/$PR/files?per_page=100" '.[]')
 [ "$size" -le "$MAX_PR_LINES" ] || finding pr-size "#$PR changes $size lines against \`$base\`."
 report_finish

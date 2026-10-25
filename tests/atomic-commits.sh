@@ -91,6 +91,7 @@ warns 'Commit `2222222 feat: add z`: line 5 is 88 characters long'
 warnings 3
 
 setup warns-on-a-breaking-change-marked-one-way
+answer repos/o/r/pulls/1 "$(pull '{"title": "feat!: drop y"}')"
 commits 'feat!: drop y' $'feat: drop z\n\nBREAKING CHANGE: z is gone.' \
     $'feat(x)!: drop w\n\nBREAKING-CHANGE: w is gone.' \
     $'feat!: drop v\n\nWhy.\n\nBREAKING CHANGE: v is gone.\nRefs: #1'
@@ -168,4 +169,28 @@ atomic
 warns '#1 changes 301 lines against `main`.'
 warnings 1
 atomic MAX_PR_LINES=301
+warnings 0
+
+setup warns-on-the-title
+commits 'feat: add y'
+answer repos/o/r/pulls/1 "$(pull '{"title": "Add a check."}')"
+atomic
+warns 'The PR title is not a Conventional Commits header::The PR title `Add a check.`: the header'
+warnings 1
+answer repos/o/r/pulls/1 "$(pull '{"title": "feat: Add a check."}')"
+atomic
+warns 'The PR title `feat: Add a check.`: the description `Add a check.` starts uppercase.'
+warns 'The PR title `feat: Add a check.`: the description `Add a check.` ends with a period.'
+warnings 2
+summarizes "gh pr edit 1 --title '<type>(<scope>): <description>'"
+
+setup warns-on-a-breaking-commit-under-a-title-with-no-bang
+commits $'feat!: drop y\n\nBREAKING CHANGE: y is gone.' 'feat: add z' \
+    $'refactor(x)!: move w\n\nBREAKING-CHANGE: w moved.'
+atomic
+warns 'The PR title `feat: add a check` has no `!`, but it holds breaking commits:'
+warns 'commits: `1111111 feat!: drop y`, `3333333 refactor(x)!: move w`.'
+warnings 1
+answer repos/o/r/pulls/1 "$(pull '{"title": "feat!: drop y"}')"
+atomic
 warnings 0

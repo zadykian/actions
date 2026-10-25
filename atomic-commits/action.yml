@@ -1,7 +1,7 @@
 name: Atomic commits
 description: >-
-  Warns on a pull request whose commits or size break the rules of the atomic-commits skill. It
-  never blocks the merge.
+  Warns on a pull request whose commits, size or title break the rules of the atomic-commits
+  skill. It never blocks the merge.
 author: zadykian
 branding:
   icon: git-commit

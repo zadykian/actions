@@ -1,8 +1,8 @@
 # atomic-commits
 
-Warns on a pull request whose commits or size break the rules of the [atomic-commits][skill]
-skill. It never blocks the merge: it annotates the pull request, writes a job summary and keeps
-one comment of its report up to date, and its job passes.
+Warns on a pull request whose commits, size or title break the rules of the
+[atomic-commits][skill] skill. It never blocks the merge: it annotates the pull request, writes a
+job summary and keeps one comment of its report up to date, and its job passes.
 
 ## Usage
 
@@ -29,7 +29,8 @@ jobs:
 ```
 
 Pin it by the full hash of a version tag's commit, as the repository's
-[README](../README.md#versions) says. `pull-requests: write` lets it comment. It reads the pull
+[README](../README.md#versions) says. `pull-requests: write` lets it comment, and the `edited` type checks the title again once
+it changes. It reads the pull
 request through GitHub's API alone and checks out nothing, so it runs none of the pull request's
 code.
 
@@ -68,6 +69,12 @@ The sizes, as [the hard rules][rules] set them:
   larger where its body says `mechanical`.
 - `pr-size`: the pull request changes `max-pr-lines` lines at most against its base, in the paths
   that `exclude` does not match.
+
+The pull request's title, as [section 6][s6] sets it:
+
+- `pr-title`: the title is a Conventional Commits header, as `header`, `header-length` and
+  `description` check one, since a squash merge turns it into the commit that lands.
+- `pr-breaking`: where a commit is breaking, the title has a `!` too.
 
 GitHub lists the first 250 commits of a pull request alone. Past them, the `commit-count` finding
 says how many commits the check skipped.
