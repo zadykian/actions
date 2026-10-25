@@ -6,6 +6,8 @@ its head commit to the default branch, so the branch holds the very commits the 
 GitHub has no such merge method: a merge commit, a squash and a rebase all write commits of their
 own, a rebase setting each commit's committer anew.
 
+It moved here from [zadykian/ff](https://github.com/zadykian/ff), whose existing pins keep working.
+
 ## Usage
 
 `.github/workflows/fast-forward.yml`:
@@ -29,11 +31,13 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: zadykian/ff@SHA # vX.Y.Z
+      - uses: zadykian/actions/ff@SHA # vX.Y.Z
 ```
 
-Pin the action by a commit's hash, the release's tag in the comment. The job's `if` starts a
-runner only for a `/ff` comment; the action checks the comment again, and ignores the others.
+[Versions](../README.md#versions) says which hash to pin. The job's `if` starts a runner only for
+a `/ff` comment; the action checks the comment again, and ignores the others. `contents: write`
+lets it push and delete the branch, `pull-requests: write` comment and retarget pull requests, and
+`issues: write` close the issues.
 
 ## What it does
 
@@ -91,4 +95,4 @@ request whose required checks pass on that commit.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](../LICENSE)
