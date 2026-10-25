@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git:*)",
+      "Bash(make:*)",
+      "Bash(jq:*)",
+      "Bash(tests/run:*)",
+      "Bash(./tests/run:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
+    ],
+    "deny": [
+      "Bash(gh pr merge *)",
+      "Bash(git push * main)",
+      "Bash(git push * main *)",
+      "Bash(git push * +main)",
+      "Bash(git push *:main)",
+      "Bash(git push *:main *)",
+      "Bash(git push *:refs/heads/main)",
+      "Bash(git push *:refs/heads/main *)"
+    ]
+  },
+  "plansDirectory": ".claude/plans",
+  "extraKnownMarketplaces": {
+    "zadykian": {
+      "source": { "source": "github", "repo": "zadykian/skills" },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "flow@zadykian": true,
+    "docs@zadykian": true,
+    "lint@zadykian": true
+  }
+}
