@@ -1,0 +1,10 @@
+# Weekly updates of the actions that the workflows pin, each release a week old at least. The lint
+# tools that tools/run pins are bumped by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
