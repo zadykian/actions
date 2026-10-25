@@ -1,6 +1,6 @@
 #!/bin/bash
-# Warns on the terms of terms.txt in what pull request $PR of $GH_REPO adds: the lines of its
-# files, its title, its description and its commit messages. It reads the environment that
+# Warns on the terms of terms.txt in what pull request $PR of $GH_REPO adds: the paths and lines
+# of its files, its title, its description and its commit messages. It reads the environment that
 # lib/report.sh names, and never fails the job.
 # shellcheck disable=SC2016 # The jq programs' $ variables are jq's, in single quotes.
 
@@ -32,8 +32,9 @@ config=$(jq -Rnr '[inputs | select(test("^\\s*(#|$)") | not)
 # tokens split at each character other than a letter or a digit, then at each hump of camelCase,
 # as getHTTPResponse gives get, http and response. A test of the text first skips most lines.
 # find gives a finding of each, a line of KEY, MESSAGE, FILE and LINE, separated by tabs. file,
-# pull and commit find those of a file, a pull request and a commit, line by line. file numbers
-# each line of the new side from its hunk's header, @@ -OLD +NEW @@, and reads the lines added.
+# pull and commit find those of a file, a pull request and a commit, line by line. file reads the
+# path of a file added or renamed, and numbers each line of the new side from its hunk's header,
+# @@ -OLD +NEW @@, to read the lines added.
 defs='($index | keys | join("|")) as $any
 | def terms: select(test($any; "i"))
     | gsub("(?<a>[a-z0-9])(?<b>[A-Z])"; "\(.a) \(.b)")
@@ -46,14 +47,16 @@ defs='($index | keys | join("|")) as $any
   def find($where; $file; $line): . as $text | terms
     | [$index[.], "\($where) says `\(.)`: \($text | code)", $file, $line]
     | map(tostring | gsub("[\t\n]"; " ")) | join("\t");
-  def file: .filename as $path
-    | foreach (.patch // "" | split("\n")[]) as $row ({n: 0};
+  def file: .filename as $path | .status as $status
+    | ($path | select($status == "added" or $status == "renamed")
+        | find("The path of the \($status) file"; $path; "")),
+    (foreach (.patch // "" | split("\n")[]) as $row ({n: 0};
         if $row | startswith("@@") then
             {n: ($row | capture("^@@ -[0-9,]+ \\+(?<n>[0-9]+)").n | tonumber)}
         elif $row | startswith("+") then {n: (.n + 1), line: .n, text: $row[1:]}
         elif $row | startswith(" ") then {n: (.n + 1)}
         else {n} end)
-    | select(.text) | .line as $line | .text | find("The added line"; $path; $line);
+    | select(.text) | .line as $line | .text | find("The added line"; $path; $line));
   def pull: (.title | find("The title"; ""; "")),
     ((.body // "" | split("\n") | to_entries[]) as {key: $i, value: $text}
         | $text | find("Line \($i + 1) of the description"; ""; ""));

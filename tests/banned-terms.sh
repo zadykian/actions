@@ -119,6 +119,16 @@ warns "file=README.md,line=1::The added line says \`simply\`"
 warnings 5
 summarizes "- \`src/a.go:22\`: The added line says \`thing\`: \`c := thing()\`"
 
+start reads-the-paths-added-or-renamed
+files "$(changed src/str_utils.py $'@@ -0,0 +1 @@\n+x = 1' added)" \
+    '{"filename": "lib/misc/a.go", "status": "renamed", "changes": 0}' \
+    "$(changed src/helpers.go $'@@ -1 +1 @@\n-a\n+b')"
+check banned-terms
+at='title=banned-terms%3A util%2C utils%2C utility%2C utilities,file=src/str_utils.py'
+warns "::warning $at::The path of the added file says \`utils\`: \`src/str_utils.py\`"
+warns "file=lib/misc/a.go::The path of the renamed file says \`misc\`"
+warnings 2
+
 # setup answers no commits: gh api fails, as on GitHub's 404.
 setup warns-where-it-cannot-read
 check banned-terms
