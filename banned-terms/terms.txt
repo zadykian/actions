@@ -1,0 +1,10 @@
+# The terms that banned-terms warns on, in the order of the banned-terms skill's list. A line is a
+# group of terms, then a colon and the group's hint: how to fix a finding. Each character other
+# than a letter or a digit splits two terms. A blank line, or one that starts with #, is no group.
+helper, helpers: Names no responsibility: name what it does
+util, utils, utility, utilities: Names no responsibility: name what it does
+misc, miscellaneous: A grab bag: group by purpose
+stuff, thing, things: Names nothing: name it
+etc: An open list: name each item, or lead the examples with "such as"
+various: Say which ones, or how many
+simply, basically, obviously: Filler: delete it
