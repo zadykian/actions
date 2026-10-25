@@ -1,13 +1,16 @@
 #!/bin/bash
 # Warns on the terms of terms.txt in what pull request $PR of $GH_REPO adds: the paths and lines
 # of its files, its title, its description and its commit messages. It reads the environment that
-# lib/report.sh names, and never fails the job.
+# lib/report.sh names, and never fails the job. It skips the files that the globs of $EXCLUDE
+# match, as lib/glob.sh reads them.
 # shellcheck disable=SC2016 # The jq programs' $ variables are jq's, in single quotes.
 
 set -euo pipefail
 
 # shellcheck source=lib/report.sh
 . "$GITHUB_ACTION_PATH/../lib/report.sh"
+# shellcheck source=lib/glob.sh
+. "$GITHUB_ACTION_PATH/../lib/glob.sh"
 report_start banned-terms
 skill=https://github.com/zadykian/skills/blob/main/skills/banned-terms/SKILL.md
 
@@ -75,6 +78,8 @@ found+=$(gh api "repos/$GH_REPO/pulls/$PR" | scan pull)$'\n'
 found+=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" |
     scan '.[] | commit')$'\n'
 while IFS=$'\t' read -r key message file line; do
-    [ -z "$key" ] || finding "$key" "$message" "$file" "$line"
+    [ -n "$key" ] || continue
+    [ -z "$file" ] || ! excluded "$file" || continue
+    finding "$key" "$message" "$file" "$line"
 done <<<"$found"
 report_finish

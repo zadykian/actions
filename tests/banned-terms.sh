@@ -129,6 +129,13 @@ warns "::warning $at::The path of the added file says \`utils\`: \`src/str_utils
 warns "file=lib/misc/a.go::The path of the renamed file says \`misc\`"
 warnings 2
 
+start skips-the-files-excluded
+files "$(changed vendor/x/utils.go $'@@ -0,0 +1 @@\n+package utils' added)" \
+    "$(changed a.go $'@@ -1 +1 @@\n+// A helper.')"
+check banned-terms EXCLUDE=$'**/vendor/**\n*.md'
+warns "file=a.go,line=1::The added line says \`helper\`"
+warnings 1
+
 # setup answers no commits: gh api fails, as on GitHub's 404.
 setup warns-where-it-cannot-read
 check banned-terms
