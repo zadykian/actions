@@ -48,6 +48,9 @@ Each commit's message, as [section 3][s3] sets it:
 - `body-width`: each line of the body is 72 characters at most. A trailer and a line that holds a
   URL may be longer. The trailers are the message's last paragraph of `Token: value` lines, as git
   reads them, such as `Co-Authored-By:` and `Refs:`.
+- `breaking`: a breaking change has both of its marks, or neither: a `!` before the header's colon,
+  and a `BREAKING CHANGE:` or `BREAKING-CHANGE:` footer.
+- `revert`: a `revert:` commit has a `Refs:` trailer, which names the reverted commit.
 
 ## Inputs
 

@@ -41,9 +41,10 @@ trailers() {
     echo "$start"
 }
 
-# message records the findings of the body of the commit $1, whose message has the lines $2...
+# message records the findings of the body and the footers of the commit $1, whose message has
+# the lines $2...
 message() {
-    local lines=("${@:2}") start i
+    local lines=("${@:2}") start i bang=false footer=false refs=false
     start=$(trailers "${lines[@]}")
     if [ $# -gt 2 ] && [ -n "${lines[1]//[[:space:]]/}" ]; then
         finding body-blank "Commit $1: line 2 is \`${lines[1]}\`, not blank."
@@ -52,6 +53,19 @@ message() {
         [ "${#lines[i]}" -le 72 ] || [[ ${lines[i]} == *://* ]] || finding body-width \
             "Commit $1: line $((i + 1)) is ${#lines[i]} characters long: \`${lines[i]}\`."
     done
+    [[ ${lines[0]%%: *} != *! ]] || bang=true
+    for ((i = 1; i < $# - 1; i++)); do
+        [[ ${lines[i]} != BREAKING[\ -]CHANGE:* ]] || footer=true
+        [ "$i" -lt "$start" ] || [[ ! ${lines[i],,} =~ ^refs[[:blank:]]*: ]] || refs=true
+    done
+    if $bang && ! $footer; then
+        finding breaking "Commit $1: the header has \`!\`, but no \`BREAKING CHANGE:\` footer."
+    elif $footer && ! $bang; then
+        finding breaking "Commit $1: a \`BREAKING CHANGE:\` footer, but no \`!\` in the header."
+    fi
+    if [[ ${lines[0]%%[:(!]*} == revert ]] && ! $refs; then
+        finding revert "Commit $1: no \`Refs:\` footer names the reverted commit."
+    fi
 }
 
 report_start atomic-commits
@@ -86,6 +100,11 @@ rule body-blank 'Line 2 of the message is not blank' "$messages" \
 rule body-width 'A line of the body is over 72 characters' "$messages" "Wrap the body at 72 \
 characters. A trailer, such as \`Co-Authored-By:\`, and a line that holds a URL may be longer. \
 $reword"
+rule breaking 'A breaking change lacks its ! or its footer' "$messages" "Mark a breaking change \
+both ways: a \`!\` before the header's colon, and a footer \`BREAKING CHANGE: <what changed and \
+what callers must do>\`. Where nothing breaks, drop both. $reword"
+rule revert 'A revert has no Refs footer' "$messages" \
+    "End the message with a footer \`Refs: <sha>\`, the reverted commit's. $reword"
 
 # Each commit, as its SHA and its count of lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] |

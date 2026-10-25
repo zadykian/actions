@@ -83,3 +83,21 @@ warns "Commit \`1111111 feat: add y\`: line 3 is 73 characters long: \`$wide\`."
 warns 'Commit `2222222 feat: add z`: line 3 is 79 characters long'
 warns 'Commit `2222222 feat: add z`: line 5 is 88 characters long'
 warnings 3
+
+setup warns-on-a-breaking-change-marked-one-way
+commits 'feat!: drop y' $'feat: drop z\n\nBREAKING CHANGE: z is gone.' \
+    $'feat(x)!: drop w\n\nBREAKING-CHANGE: w is gone.' \
+    $'feat!: drop v\n\nWhy.\n\nBREAKING CHANGE: v is gone.\nRefs: #1'
+atomic
+warns 'Commit `1111111 feat!: drop y`: the header has `!`, but no `BREAKING CHANGE:` footer.'
+warns 'Commit `2222222 feat: drop z`: a `BREAKING CHANGE:` footer, but no `!` in the header.'
+warnings 2
+
+# The Refs footer is a trailer of the last paragraph.
+setup warns-on-a-revert-with-no-refs
+commits 'revert: feat: add y' $'revert: feat: add z\n\nIt broke w.\n\nRefs: 1111111' \
+    $'revert: feat: add v\n\nRefs: 2222222\n\nIt broke w.'
+atomic
+warns 'Commit `1111111 revert: feat: add y`: no `Refs:` footer names the reverted commit.'
+warns 'Commit `3333333 revert: feat: add v`: no `Refs:` footer'
+warnings 2
