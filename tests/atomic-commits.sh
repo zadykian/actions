@@ -122,3 +122,13 @@ atomic
 warns "Commit \`abcdef0 Merge branch 'main' into feat\` is a merge commit, of 2 parents."
 warnings 1
 summarizes 'git fetch origin && git rebase --update-refs origin/feat/x-1'
+
+# GitHub lists 250 commits at most, in pages of 100.
+setup reads-every-page-and-notes-the-cap
+answer repos/o/r/pulls/1 "$(pull '{"commits": 300}')"
+mapfile -t subjects < <(seq -f 'feat: add %g' 249)
+commits "${subjects[@]}" 'Add the last'
+atomic
+warns 'Commit `2502502 Add the last`: the header is not'
+warns '#1 has 300 commits, and GitHub lists the first 250 alone: the check skipped the other 50.'
+warnings 2

@@ -60,6 +60,9 @@ Each commit's place in the branch:
 
 Either finding is the commit's only one, as its fix folds the commit in or drops it.
 
+GitHub lists the first 250 commits of a pull request alone. Past them, the `commit-count` finding
+says how many commits the check skipped.
+
 ## Inputs
 
 - `token`, `${{ github.token }}` by default: reads the pull request, and comments on it.

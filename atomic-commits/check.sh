@@ -70,7 +70,8 @@ message() {
 
 report_start atomic-commits
 skill=https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md
-base=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .base.ref)
+pull=$(gh api "repos/$GH_REPO/pulls/$PR" --jq '"\(.base.ref) \(.commits // 0)"')
+read -r base total <<<"$pull"
 read -r -d '' -a allowed <<<"$TYPES" || true
 header_form="^($(IFS='|' && echo "${allowed[*]}"))(\([a-z0-9._/-]+\))?!?: [^ ]"
 # How to reword a commit, as section 4 of the skill says.
@@ -112,6 +113,8 @@ into a \`fixup!\` of that commit first. $reword"
 rule merge 'A merge commit' "$skill#6-stack-mechanics-git--238" "Rebase the branch onto \
 \`$base\` instead of merging it in, which drops the merge commits: \`git fetch origin && git \
 rebase --update-refs origin/$base\`. Then push it with \`git push --force-with-lease\`."
+rule commit-count 'More commits than GitHub lists' "$skill#5-choose-pr-boundaries" \
+    "Split the pull request into a stack of smaller ones, as sections 5 and 6 of the skill say."
 
 # Each commit, as its SHA and its counts of parents and lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] | {sha,
@@ -120,10 +123,12 @@ commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq
 [ -n "$commits" ] || cannot_check 'GitHub lists none of its commits.'
 # A commit to fold in or rebase away gets that finding alone.
 temporary='^((fixup|squash|amend)!|wip([^[:alnum:]]|$))'
+listed=0
 while read -r sha parents count; do
     lines=()
     for ((i = 0; i < count; i++)); do IFS= read -r line && lines+=("$line"); done
     commit="\`${sha:0:7} ${lines[0]-}\`"
+    listed=$((listed + 1))
     if [ "$parents" -gt 1 ]; then
         finding merge "Commit $commit is a merge commit, of $parents parents."
     elif [[ ${lines[0],,} =~ $temporary ]]; then
@@ -133,4 +138,7 @@ while read -r sha parents count; do
         message "$commit" "${lines[@]}"
     fi
 done <<<"$commits"
+# GitHub lists 250 commits of a pull request at most.
+[ "$total" -le "$listed" ] || finding commit-count "#$PR has $total commits, and GitHub lists the \
+first $listed alone: the check skipped the other $((total - listed))."
 report_finish
