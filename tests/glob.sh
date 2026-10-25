@@ -32,6 +32,9 @@ docs/*.md docs/a.md ! docs/x/a.md docs.md
 a/**/b a/b a/x/b a/x/y/b ! a/xb ab
 **/vendor/** vendor/a vendor/a/b.go x/vendor/y/z ! vendor vendor.go x/avendor/y
 ** a a/b/c
+[ab].txt a.txt b.txt ! c.txt ab.txt
+[!ab].txt c.txt ! a.txt /.txt
+[]a]x ]x ax ! bx
 a+b(c){2}|^$[.txt a+b(c){2}|^$[.txt ! aab.txt
 GLOBS
 

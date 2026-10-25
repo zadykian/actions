@@ -6,7 +6,8 @@
 # EXCLUDE holds a glob a line; blank lines and the spaces around a glob are dropped. A glob
 # matches as git's :(glob) pathspec does:
 #
-# - * and ? match within a directory, never a /;
+# - * and ? match within a directory, never a /, and [abc] or [!abc] one character of the set, or
+#   out of it;
 # - **/ matches zero or more directories, and a trailing /** everything inside;
 # - every other character matches itself.
 #
@@ -17,7 +18,7 @@ glob_source='' glob_regexes=()
 
 # glob_regex prints the extended regular expression that matches the paths the glob $1 matches.
 glob_regex() {
-    local glob=$1 regex='' rest i=0
+    local glob=$1 regex='' rest i=0 set='^\[(!?)(]?[^]]*)]'
     while [ "$i" -lt "${#glob}" ]; do
         rest=${glob:i}
         if [ "$i" = 0 ] || [ "${glob:i-1:1}" = / ]; then
@@ -29,7 +30,16 @@ glob_regex() {
         case ${rest:0:1} in
         '*') regex+='[^/]*' ;;
         '?') regex+='[^/]' ;;
-        '.' | '+' | '^' | '$' | '|' | '(' | ')' | '{' | '}' | '[' | \\) regex+="\\${rest:0:1}" ;;
+        '.' | '+' | '^' | '$' | '|' | '(' | ')' | '{' | '}' | \\) regex+="\\${rest:0:1}" ;;
+        '[')
+            # A set that lacks its ] is a [ of its own.
+            if [[ $rest =~ $set ]] && [ -n "${BASH_REMATCH[2]}" ]; then
+                regex+="[${BASH_REMATCH[1]:+^/}${BASH_REMATCH[2]}]"
+                i=$((i + ${#BASH_REMATCH[0]}))
+                continue
+            fi
+            regex+='\['
+            ;;
         *) regex+=${rest:0:1} ;;
         esac
         i=$((i + 1))
