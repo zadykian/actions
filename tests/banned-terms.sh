@@ -24,6 +24,20 @@ commits() {
     answer repos/o/r/pulls/1/commits "${pages[@]}"
 }
 
+# files answers the files of the pull request, the JSON of one an argument and a page each.
+files() {
+    local file pages=()
+    for file in "$@"; do pages+=("[$file]"); done
+    answer repos/o/r/pulls/1/files "${pages[@]}"
+}
+
+# changed prints the JSON of a file of the path $1 and the patch $2, of the status $3, modified
+# where omitted.
+changed() {
+    jq -nc --arg path "$1" --arg patch "$2" --arg status "${3:-modified}" \
+        '{filename: $path, status: $status, changes: 1, patch: $patch}'
+}
+
 # matches checks that the title $1 gives a finding of each term after it, and no other.
 matches() {
     local term
@@ -83,6 +97,27 @@ check banned-terms
 warns "::The subject of commit \`1111111\` says \`helper\`: \`feat: add a parser helper\`"
 warns "::Line 3 of commit \`2222222 feat: add a lexer\` says \`simply\`: \`It simply splits.\`"
 warnings 2
+
+start numbers-the-lines-of-each-hunk
+files "$(changed src/a.go '@@ -1,3 +1,4 @@ package a
+ import "os"
+-import "a/misc"
++import "a/helpers"
++helper := helpers.NewHelper()
+ func a() {}
+\ No newline at end of file
+@@ -20,2 +21,3 @@ func b() {
+ 	b()
++	c := thing()
+ }')" "$(changed README.md $'@@ -0,0 +1 @@\n+Simply run it.' added)"
+check banned-terms
+warns "file=src/a.go,line=2::The added line says \`helpers\`: \`import \"a/helpers\"\`"
+warns "file=src/a.go,line=3::The added line says \`helper\`: \`helper := helpers.NewHelper()\`"
+warns "file=src/a.go,line=3::The added line says \`helpers\`"
+warns "file=src/a.go,line=22::The added line says \`thing\`: \`c := thing()\`"
+warns "file=README.md,line=1::The added line says \`simply\`"
+warnings 5
+summarizes "- \`src/a.go:22\`: The added line says \`thing\`: \`c := thing()\`"
 
 # setup answers no commits: gh api fails, as on GitHub's 404.
 setup warns-where-it-cannot-read
