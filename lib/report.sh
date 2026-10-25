@@ -12,7 +12,9 @@
 # report_start reads GH_REPO, owner/name, PR, the pull request's number, and COMMENT, true where
 # omitted. Where PR is empty, as on another event than pull_request, it warns and exits 0. It then
 # traps errors, so that a check runs under set -euo pipefail and never fails the job: an error ends
-# it in one warning, `NAME could not check #PR: REASON`, and the status 0.
+# it in one warning, `NAME could not check #PR: REASON`, and the status 0. Call finding and
+# cannot_check in the check's own shell, never in a pipeline or a $(...), which run in a subshell:
+# feed a loop with `done <<<"$list"` instead.
 #
 # TITLE is a line of text, URL the rule's section of the skill, and FIX how to fix a finding, in
 # Markdown. MESSAGE says where and what is wrong, quoting it. FILE is a path from the repository's
