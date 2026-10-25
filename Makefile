@@ -4,7 +4,7 @@
 # version and SHA-256 it pins.
 FILES =
 
-.PHONY: lint lint-file lint-tree actionlint zizmor shell
+.PHONY: lint lint-file lint-tree test actionlint zizmor shell
 
 lint: actionlint zizmor shell
 
@@ -25,8 +25,12 @@ actionlint:
 zizmor:
 	tools/run zizmor .
 
-# The shell scripts, found by their extension or their shebang, as shfmt -f finds them, since
-# tools/run has no extension. -x follows a script's source directives into the files it sources.
+# The shell scripts, found by their extension or their shebang, as shfmt -f finds them: tools/run
+# and tests/run have none. -x follows a script's source directives into the files it sources.
 shell:
 	@set -ef; scripts=$$(tools/run shfmt -f $(or $(FILES),.)); [ -z "$$scripts" ] || { \
 		tools/run shellcheck -x $$scripts && tools/run shfmt -i 4 -d $$scripts; }
+
+# make test, CI's test job: the cases of each tests/NAME.sh.
+test:
+	tests/run

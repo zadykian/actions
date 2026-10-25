@@ -1,0 +1,90 @@
+#!/bin/bash
+# Runs the cases of each tests/NAME.sh, or of those named, `tests/run [NAME...]`, and fails where
+# any case fails.
+#
+# A case file is bash, which tests/run sources under set -euo pipefail: a command that fails stops
+# the run. Its cases call these functions, each case setup first:
+#
+#   setup CASE                    starts the case CASE, in $FAKE, a directory of its own
+#   check NAME [VAR=VALUE...]     runs NAME/check.sh as its action.yml step does, with the VARs;
+#                                 the case fails where it exits non-zero, as that fails the job
+#   step [VAR=VALUE...] FILE [ARG...]  runs the script FILE with the ARGs and the VARs
+#   warns TEXT                    one of its ::warning lines holds TEXT
+#   warnings N                    it printed N ::warning lines
+#   fail REASON                   fails the case, which goes on
+#
+# setup sets the environment of a pull request event: GH_REPO=o/r, PR=1, COMMENT=true, and
+# GITHUB_STEP_SUMMARY and RUNNER_TEMP in $FAKE, its current directory. ROOT is the repository's
+# root. Pass a case's inputs to check as VAR=VALUE, so that none leaks into the next case.
+
+# The case files call the functions below, which ShellCheck does not see, as it reads no case.
+# shellcheck disable=SC2329
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+tmp="$(mktemp -d)"
+trap 'rm -rf "$tmp"' EXIT
+# The caller's git variables would point the cases' git at the caller's repository, as the GIT_DIR
+# that git rebase --exec sets does.
+unset "${!GIT_@}"
+export ROOT
+cases=0 failed=0 file='' name=''
+
+# setup starts the case $1 afresh, in a directory of its own.
+setup() {
+    name=$1
+    cases=$((cases + 1))
+    export FAKE="$tmp/$cases"
+    mkdir -p "$FAKE/temp"
+    cd "$FAKE"
+    export GH_REPO=o/r PR=1 COMMENT=true GITHUB_EVENT_NAME=pull_request
+    export GITHUB_STEP_SUMMARY="$FAKE/summary" RUNNER_TEMP="$FAKE/temp"
+    export GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=7
+    : >"$GITHUB_STEP_SUMMARY"
+}
+
+# fail reports that the case fails, for the reason $*.
+fail() {
+    echo "FAIL $file: $name: $*"
+    failed=1
+}
+
+# step runs `env "$@"`: the script after the VAR=VALUE arguments, with its own arguments. Its
+# output goes to $FAKE/out, and its status to STATUS.
+step() {
+    STATUS=0
+    env "$@" >"$FAKE/out" 2>&1 </dev/null || STATUS=$?
+}
+
+# check runs the check.sh of the action $1, with the VAR=VALUE arguments after it, and fails the
+# case where it exits non-zero.
+check() {
+    step GITHUB_ACTION_PATH="$ROOT/$1" "${@:2}" "$ROOT/$1/check.sh"
+    [ "$STATUS" = 0 ] || fail "$1/check.sh exited with $STATUS: $(cat "$FAKE/out")"
+}
+
+# warns checks that one of the last step's ::warning lines holds the text $1.
+warns() {
+    grep '^::warning' "$FAKE/out" | grep -F -- "$1" >/dev/null ||
+        fail "no warning '$1': $(cat "$FAKE/out")"
+}
+
+# warnings checks that the last step printed $1 ::warning lines.
+warnings() {
+    local count
+    count=$(grep -c '^::warning' "$FAKE/out") || true
+    [ "$count" = "$1" ] || fail "$count warnings, not $1: $(cat "$FAKE/out")"
+}
+
+shopt -s nullglob
+names=("$@")
+[ $# -gt 0 ] || names=("$ROOT"/tests/*.sh)
+for file in "${names[@]}"; do
+    file=tests/$(basename "$file" .sh).sh
+    # shellcheck source=/dev/null
+    . "$ROOT/$file"
+done
+cd "$ROOT"
+[ "$failed" != 0 ] || echo "PASS: $cases cases"
+exit "$failed"
