@@ -1,0 +1,53 @@
+name: Banned terms
+description: >-
+  Warns on vague names and fillers in what a pull request adds: the paths and lines of its files,
+  its title, its description and its commit messages. It never blocks the merge.
+author: zadykian
+branding:
+  icon: alert-triangle
+  color: yellow
+
+# A job of the pull_request event runs it, of the types opened, edited, reopened and synchronize.
+# check.sh reads the pull request through gh api alone, and checks out nothing.
+inputs:
+  token:
+    description: The token that reads the pull request and keeps its comment.
+    default: ${{ github.token }}
+  comment:
+    description: Whether to keep one comment of the report on the pull request, true or false.
+    default: 'true'
+  terms:
+    description: >-
+      Terms to warn on beside those of terms.txt, in its form: a group a line, its terms, then a
+      colon and the group's hint.
+    default: ''
+  allow:
+    description: Terms of the list to drop, separated by whitespace.
+    default: ''
+  exclude:
+    description: The files to skip, a glob a line, which match as git's :(glob) pathspecs do.
+    default: |
+      **/go.sum
+      **/*.pb.go
+      **/*_gen.go
+      **/*.g.cs
+      **/*.Designer.cs
+      **/*ModelSnapshot.cs
+      **/package-lock.json
+      **/packages.lock.json
+      **/vendor/**
+
+runs:
+  using: composite
+  steps:
+    - name: Banned terms
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        COMMENT: ${{ inputs.comment }}
+        TERMS: ${{ inputs.terms }}
+        ALLOW: ${{ inputs.allow }}
+        EXCLUDE: ${{ inputs.exclude }}
+      run: '"$GITHUB_ACTION_PATH/check.sh"'
