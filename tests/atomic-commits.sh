@@ -54,3 +54,32 @@ warns 'Commit `2222222 feat: add y.`: the description `add y.` ends with a perio
 warns '3333333 feat(api): ETag the responses`: the description `ETag the responses` starts'
 warns '4444444 fix: Éclair y`: the description `Éclair y` starts uppercase.'
 warnings 4
+
+setup warns-on-a-body-with-no-blank-line
+commits $'feat: add y\nThe body.' $'feat: add z\n\nThe body.' $'feat: add w\n \nThe body.'
+atomic
+warns 'Commit `1111111 feat: add y`: line 2 is `The body.`, not blank.'
+warnings 1
+
+# Trailers and URLs may run past 72 characters, but not a line of `Token: value` short of the last
+# paragraph, nor the last paragraph where a line of it is no trailer.
+setup warns-on-a-wide-body
+wide=$(printf 'w%.0s' {1..73})
+commits "feat: add y
+
+$wide
+See https://example.test/$wide
+
+Co-Authored-By: A $wide <a@example.test>
+Refs: #1
+  $wide" "feat: add z
+
+Refs: $wide
+
+Not a trailer: $wide
+Refs: #2"
+atomic
+warns "Commit \`1111111 feat: add y\`: line 3 is 73 characters long: \`$wide\`."
+warns 'Commit `2222222 feat: add z`: line 3 is 79 characters long'
+warns 'Commit `2222222 feat: add z`: line 5 is 88 characters long'
+warnings 3

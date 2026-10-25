@@ -38,12 +38,16 @@ code.
 Each finding names the commit and quotes what is wrong. It links to the rule's section of the
 skill, and says how to fix it, with the skill's commands for rewording a commit.
 
-Each commit's header, as [section 3][s3] sets it:
+Each commit's message, as [section 3][s3] sets it:
 
 - `header`: the header is `type(scope)!: description`, its type one of `types` and its scope
   lowercase.
 - `header-length`: the header is 72 characters at most.
 - `description`: the description starts lowercase, and ends without a period.
+- `body-blank`: line 2, between the header and the body, is blank.
+- `body-width`: each line of the body is 72 characters at most. A trailer and a line that holds a
+  URL may be longer. The trailers are the message's last paragraph of `Token: value` lines, as git
+  reads them, such as `Co-Authored-By:` and `Refs:`.
 
 ## Inputs
 

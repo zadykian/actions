@@ -25,6 +25,35 @@ header() {
     fi
 }
 
+# trailers prints the index of the first trailer among the message lines $@, or $# where they end
+# in none. As git reads them, the trailers are the last paragraph, other than the header's, where
+# each line is `Token: value` or continues the line before it.
+trailers() {
+    local lines=("$@") start=$# i
+    while [ "$start" -gt 2 ] && [ -n "${lines[start - 1]//[[:space:]]/}" ]; do
+        start=$((start - 1))
+    done
+    { [ "$start" -gt 1 ] && [ -z "${lines[start - 1]//[[:space:]]/}" ]; } || start=$#
+    for ((i = start; i < $#; i++)); do
+        [[ ${lines[i]} =~ ^[[:alnum:]-]+[[:blank:]]*: ]] ||
+            { [ "$i" -gt "$start" ] && [[ ${lines[i]} =~ ^[[:blank:]] ]]; } || start=$#
+    done
+    echo "$start"
+}
+
+# message records the findings of the body of the commit $1, whose message has the lines $2...
+message() {
+    local lines=("${@:2}") start i
+    start=$(trailers "${lines[@]}")
+    if [ $# -gt 2 ] && [ -n "${lines[1]//[[:space:]]/}" ]; then
+        finding body-blank "Commit $1: line 2 is \`${lines[1]}\`, not blank."
+    fi
+    for ((i = 1; i < start; i++)); do
+        [ "${#lines[i]}" -le 72 ] || [[ ${lines[i]} == *://* ]] || finding body-width \
+            "Commit $1: line $((i + 1)) is ${#lines[i]} characters long: \`${lines[i]}\`."
+    done
+}
+
 report_start atomic-commits
 skill=https://github.com/zadykian/skills/blob/main/skills/atomic-commits/SKILL.md
 base=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .base.ref)
@@ -52,6 +81,11 @@ rule header-length 'The header is over 72 characters' "$messages" \
     "Shorten the header to 72 characters at most. $reword"
 rule description 'The description starts uppercase or ends with a period' "$messages" \
     "Write the description as an imperative, lowercase, with no period at its end. $reword"
+rule body-blank 'Line 2 of the message is not blank' "$messages" \
+    "Leave line 2 blank, between the header and the body. $reword"
+rule body-width 'A line of the body is over 72 characters' "$messages" "Wrap the body at 72 \
+characters. A trailer, such as \`Co-Authored-By:\`, and a line that holds a URL may be longer. \
+$reword"
 
 # Each commit, as its SHA and its count of lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] |
@@ -63,5 +97,6 @@ while read -r sha count; do
     for ((i = 0; i < count; i++)); do IFS= read -r line && lines+=("$line"); done
     commit="\`${sha:0:7} ${lines[0]-}\`"
     header "Commit $commit" "${lines[0]-}"
+    message "$commit" "${lines[@]}"
 done <<<"$commits"
 report_finish
