@@ -1,8 +1,8 @@
 #!/bin/bash
-# Warns on the terms of terms.txt and $TERMS, less those of $ALLOW, in what pull request $PR of
-# $GH_REPO adds: the paths and lines of its files, its title, its description and its commit
-# messages. It reads the environment that lib/report.sh names, and never fails the job. It skips
-# the files that the globs of $EXCLUDE match, as lib/glob.sh reads them.
+# Warns on the terms of terms.txt in what pull request $PR of $GH_REPO adds: the paths and lines
+# of its files, its title, its description and its commit messages. It reads the environment that
+# lib/report.sh names, and never fails the job. It skips the files that the globs of $EXCLUDE
+# match, as lib/glob.sh reads them.
 # shellcheck disable=SC2016 # The jq programs' $ variables are jq's, in single quotes.
 
 set -euo pipefail
@@ -14,26 +14,17 @@ set -euo pipefail
 report_start banned-terms
 skill=https://github.com/zadykian/skills/blob/main/skills/banned-terms/SKILL.md
 
-# The list, terms.txt then $TERMS, less the terms of $ALLOW: on its first line the index, {TERM:
-# KEY}, then each group's rule, its KEY, TITLE and HINT. A group's key is its number, and a term
-# that two groups name goes to the later one. A line with no colon gives the KEY !.
-config=$({
-    cat "$GITHUB_ACTION_PATH/terms.txt"
-    printf '%s\n' "${TERMS-}"
-} | jq -Rnr --arg allow "${ALLOW-}" '[$allow | ascii_downcase | splits("[^a-z0-9]+")] as $allowed
-    | [inputs | select(test("^\\s*(#|$)") | not)
-        | (capture("^(?<terms>[^:]*):\\s*(?<hint>.*)") | .terms |= [ascii_downcase
-            | splits("[^a-z0-9]+") | select(. != "" and (IN($allowed[]) | not))]) // {bad: .}]
-    | (reduce to_entries[] as $group ({}; .[$group.value.terms[]?] = "\($group.key)")) as $index
-    | ($index | tojson), (.[] | select(.bad) | "!\t\(.bad)"), (to_entries[] | "\(.key)" as $key
-        | [.value.terms[]? | select($index[.] == $key)] as $terms | select($terms != [])
-        | [$key, ($terms | join(", ")), .value.hint] | map(gsub("\t"; " ")) | join("\t"))')
+# The list of terms.txt, which $skill#the-terms sets and no input changes: on its first line the
+# index, {TERM: KEY}, then each group's rule, its KEY, TITLE and HINT. A group's key is its number.
+config=$(jq -Rnr '[inputs | select(test("^\\s*(#|$)") | not)
+    | capture("^(?<terms>[^:]*):\\s*(?<hint>.*)") | .terms |= [ascii_downcase
+        | splits("[^a-z0-9]+") | select(. != "")]]
+    | (reduce to_entries[] as $group ({}; .[$group.value.terms[]] = "\($group.key)")) as $index
+    | ($index | tojson), (to_entries[] | ["\(.key)", (.value.terms | join(", ")), .value.hint]
+        | join("\t"))' "$GITHUB_ACTION_PATH/terms.txt")
 {
     read -r index
-    while IFS=$'\t' read -r key title hint; do
-        [ "$key" != '!' ] || cannot_check "the terms input holds a line with no colon: $title"
-        rule "$key" "$title" "$skill" "$hint"
-    done
+    while IFS=$'\t' read -r key title hint; do rule "$key" "$title" "$skill" "$hint"; done
 } <<<"$config"
 readme=https://github.com/zadykian/actions/blob/main/banned-terms/README.md
 rule unread 'Files with no patch' "$readme#limits" "GitHub gives no patch of a binary file, nor of \

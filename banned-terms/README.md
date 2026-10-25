@@ -35,8 +35,8 @@ which hash to pin.
 
 ## The terms
 
-[terms.txt](terms.txt) is the source of the list, in the skill's order. Each line is a group of
-terms, then a colon and the group's hint:
+[terms.txt](terms.txt) is the source of the list, in the skill's order, and no input changes it.
+Each line is a group of terms, then a colon and the group's hint:
 
 ```text
 helper, helpers: Names no responsibility: name what it does
@@ -75,21 +75,7 @@ It reads the pull request through GitHub's API alone, and checks out nothing:
 | --------- | --------------------- | ------------------------------------------------------------ |
 | `token`   | `${{ github.token }}` | The token that reads the pull request and keeps its comment  |
 | `comment` | `true`                | `false` leaves the comment out, and keeps the annotations    |
-| `terms`   | none                  | Groups of terms to add, a line each, in terms.txt's form     |
-| `allow`   | none                  | Terms of the list to drop, separated by whitespace           |
 | `exclude` | generated files       | The files to skip, a glob a line, as git's `:(glob)` matches |
-
-To add a group and drop a term:
-
-```yaml
-      - uses: zadykian/actions/banned-terms@SHA # vX.Y.Z
-        with:
-          terms: |
-            manager, managers: Names no responsibility: name what it manages
-          allow: misc miscellaneous
-```
-
-A term that `terms` names again moves to the new group, so a line can give it a hint of its own.
 
 The default `exclude`, in [action.yml](action.yml), holds the lockfiles, generated code and vendored
 code that atomic-commits leaves out of its counts. A value of your own replaces it.
