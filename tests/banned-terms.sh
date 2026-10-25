@@ -146,6 +146,26 @@ warns 'file=data.json::GitHub gives no patch of the file, so its lines go unread
 warnings 2
 summarizes '#### Files with no patch'
 
+start adds-a-group-of-terms
+titled 'feat: add a SessionManager to the helpers'
+terms=$'\n# Ours.\nmanager, managers: Name what it manages\nhelpers: Name it by purpose'
+check banned-terms TERMS="$terms"
+warns "title=banned-terms%3A manager%2C managers::The title says \`manager\`"
+warns "title=banned-terms%3A helpers::The title says \`helpers\`"
+warnings 2
+summarizes $'How to fix it:\n\nName it by purpose'
+
+start allows-terms
+titled 'feat: add misc stuff to the helper'
+check banned-terms ALLOW=$'Misc\tstuff '
+warns "The title says \`helper\`"
+warnings 1
+
+start warns-on-a-line-with-no-hint
+check banned-terms TERMS='manager managers'
+warns '::banned-terms could not check #1: the terms input holds a line with no colon: manager'
+warnings 1
+
 # setup answers no commits: gh api fails, as on GitHub's 404.
 setup warns-where-it-cannot-read
 check banned-terms
