@@ -1,0 +1,30 @@
+name: PR description
+description: >-
+  Warns on a pull request whose description strays from the form of atomic-commits §6: the problem
+  it solves, then its high-level changes. It never blocks the merge.
+author: zadykian
+branding:
+  icon: file-text
+  color: blue
+
+# A job of the pull_request event runs it, of the types opened, edited, reopened and synchronize:
+# edited checks the description again once it changes.
+inputs:
+  token:
+    description: The token that reads the pull request and comments on it.
+    default: ${{ github.token }}
+  comment:
+    description: true keeps one comment of the report on the pull request, false the summary alone.
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Check the description
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        COMMENT: ${{ inputs.comment }}
+      run: '"$GITHUB_ACTION_PATH/check.sh"'
