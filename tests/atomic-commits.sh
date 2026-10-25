@@ -37,3 +37,20 @@ summarizes 'GIT_EDITOR="cp /tmp/msg.txt" \
     git rebase -i --update-refs main'
 atomic TYPES=$'feet\n  feat'
 warnings 3
+
+setup warns-on-a-header-over-72-characters
+commits "feat: $(printf 'a%.0s' {1..67})" "feat: $(printf 'é%.0s' {1..66})"
+atomic
+warns 'Commit `1111111 feat: aaaa'
+warns 'the header is 73 characters long.'
+warnings 1
+
+setup warns-on-the-description
+commits 'feat: Add y' 'feat: add y.' 'feat(api): ETag the responses' 'fix: Éclair y' \
+    'fix: mend Élan'
+atomic
+warns 'Commit `1111111 feat: Add y`: the description `Add y` starts uppercase.'
+warns 'Commit `2222222 feat: add y.`: the description `add y.` ends with a period.'
+warns '3333333 feat(api): ETag the responses`: the description `ETag the responses` starts'
+warns '4444444 fix: Éclair y`: the description `Éclair y` starts uppercase.'
+warnings 4

@@ -12,8 +12,17 @@ export LC_ALL=C.UTF-8
 # header records the findings of the header $2, which $1 names, under the rule $3, or each under
 # its own rule where $3 is omitted.
 header() {
+    local description=${2#*: }
     [[ $2 =~ $header_form ]] ||
         finding "${3:-header}" "$1: the header is not \`type(scope)!: description\`."
+    [ "${#2}" -le 72 ] || finding "${3:-header-length}" "$1: the header is ${#2} characters long."
+    [[ $2 == *': '* ]] || return 0
+    if [[ $description =~ ^[[:upper:]] ]]; then
+        finding "${3:-description}" "$1: the description \`$description\` starts uppercase."
+    fi
+    if [[ $description == *. ]]; then
+        finding "${3:-description}" "$1: the description \`$description\` ends with a period."
+    fi
 }
 
 report_start atomic-commits
@@ -39,6 +48,10 @@ reword=${reword//<base>/"$base"}
 messages=$skill#3-commit-messages-conventional-commits-100
 rule header 'The header is not Conventional Commits' "$messages" "Write the header as \
 \`type(scope)!: description\`, its type one of \`$TYPES\` and its scope lowercase. $reword"
+rule header-length 'The header is over 72 characters' "$messages" \
+    "Shorten the header to 72 characters at most. $reword"
+rule description 'The description starts uppercase or ends with a period' "$messages" \
+    "Write the description as an imperative, lowercase, with no period at its end. $reword"
 
 # Each commit, as its SHA and its count of lines, then the lines of its message.
 commits=$(gh api --paginate "repos/$GH_REPO/pulls/$PR/commits?per_page=100" --jq '.[] |
