@@ -2,7 +2,7 @@
 # Pushes the head commit of pull request $PR to $MAIN, the default branch of $GH_REPO, for
 # $COMMENTER, who commented /ff. It runs in a checkout of $GH_REPO: git pushes with the
 # credentials that actions/checkout keeps, gh with $GH_TOKEN. A refusal leaves its reason in
-# $RUNNER_TEMP/refusal, for report.sh to comment.
+# $RUNNER_TEMP/refusal, for comment-refusal.sh to comment.
 
 set -euo pipefail
 
