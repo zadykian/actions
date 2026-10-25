@@ -30,12 +30,14 @@ description.
 ## Rules
 
 Each rule links to [section 6][section]. Its finding quotes the heading or the text at fault, and
-its fix shows the form.
+its fix shows the form. A heading in a fenced code block or an HTML comment is no heading, and
+an HTML comment or a code block is no prose: a template's comments, left alone, are no
+description.
 
 | Key | Finding when |
 | --- | --- |
 | `empty` | The description is empty, or blank |
-| `problem` | `## Problem` is missing |
+| `problem` | `## Problem` is missing, has text or a heading before it, or holds no prose |
 
 ## Inputs
 

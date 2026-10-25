@@ -35,7 +35,7 @@ summarizes 'No findings remain'
 describe passes-line-ends-of-a-browser "${clean//$'\n'/$'\r\n'}"
 warnings 0
 
-describe passes-a-closing-run $'## Problem ##\n\nA check is missing.'"$changes"
+describe passes-a-closing-run $'## Problem ##\n\nA `<!--` within a line hides nothing.'"$changes"
 warnings 0
 
 describe warns-on-no-problem "${changes:2}"
@@ -44,4 +44,23 @@ warnings 1
 
 describe ignores-headings-in-code $'```md\n## Problem\n```\n~~~~\n## Problem\n~~~\n~~~~'"$changes"
 warns "The description has no \`## Problem\` heading."
+warnings 1
+
+describe ignores-headings-in-comments $'<!--\n## Problem\n-->\n<!-- ## Problem -->'"$changes"
+warns "The description has no \`## Problem\` heading."
+warnings 1
+
+describe warns-on-text-before-problem $'Adds a check.\n\n'"$clean"
+warns "\`## Problem\`, line 3 of the description, is not its first section: \`Adds a check.\` comes"
+warnings 1
+
+describe warns-on-a-heading-before-problem $'# Add a check\n'"$clean"
+warns "\`## Problem\`, line 2 of the description, is not its first section: \`# Add a check\` comes"
+
+describe warns-on-a-template-of-comments $'## Problem\n\n<!-- What is wrong? -->'"$changes"
+warns "\`## Problem\`, line 1 of the description, holds no prose."
+warnings 1
+
+describe warns-on-code-alone $'## Problem\n\n~~~\n# log\n~~~~'"$changes"
+warns "\`## Problem\`, line 1 of the description, holds no prose."
 warnings 1
