@@ -64,6 +64,55 @@ probe </dev/null
 summarizes "merge. No findings remain as of \`0123456\`."
 warnings 0
 
+marker='<!-- zadykian/actions:probe -->'
+old=$(jq -nc --arg body "$marker"$'\nOld.' '[{id: 5, body: $body}]')
+setup comments
+probe <<<"finding a 'Found.'"
+wrote POST repos/o/r/issues/1/comments "$marker
+### probe"
+writes 1
+
+setup edits-the-comment
+answer repos/o/r/issues/1/comments '[{"id": 4, "body": "Looks good."}]' "$old"
+probe <<<"finding a 'Found.'"
+wrote PATCH repos/o/r/issues/comments/5 '- Found.'
+writes 1
+
+setup edits-the-comment-to-clean
+answer repos/o/r/issues/1/comments "$old"
+probe </dev/null
+wrote PATCH repos/o/r/issues/comments/5 "No findings remain as of \`0123456\`."
+writes 1
+
+setup comments-nothing-clean
+probe </dev/null
+writes 0
+
+setup comments-nothing-when-told
+probe COMMENT=false <<<"finding a 'Found.'"
+writes 0
+! grep -qF issues/1/comments "$FAKE/calls" || fail "read the comments"
+
+setup warns-on-a-refused-comment
+refuse POST repos/o/r/issues/1/comments
+probe <<'CHECK'
+for i in $(seq 12); do finding a "Finding $i."; done
+CHECK
+refused='could not comment on #1, so the job summary alone holds the report: Resource not'
+warns "::warning::probe $refused accessible by integration (HTTP 403)"
+warns "::Finding 9.%0A$rule_a%0AThe job summary holds 3 more findings."
+warnings 10
+summarizes '- Finding 12.'
+
+setup cuts-a-long-comment
+probe <<'CHECK'
+pad=$(printf '%090d' 0)
+for i in $(seq 700); do finding a "Finding $i: $pad."; done
+CHECK
+cut='[the job summary](https://github.com/o/r/actions/runs/7) holds all of it._'
+jq -e --arg cut "$cut" '.input.body | length < 65536 and endswith($cut)' "$FAKE/writes" \
+    >/dev/null || fail "the comment is not cut: $(tail -c 300 "$FAKE/writes")"
+
 setup warns-on-an-error
 probe <<'CHECK'
 false

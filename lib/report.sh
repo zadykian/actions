@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # The report of an action's check.sh, which sources it: its findings, as annotations on the pull
-# request and a job summary. Sourcing it defines functions and sets the report_ variables, and runs
-# nothing.
+# request, a job summary, and one comment. Sourcing it defines functions and sets the report_
+# variables, and runs nothing.
 #
 #   report_start NAME                  starts the report of the action NAME
 #   rule KEY TITLE URL FIX             declares the rule KEY
@@ -9,10 +9,10 @@
 #   report_finish                      reports the findings, and exits 0
 #   cannot_check REASON                warns that the check could not run, and exits 0
 #
-# report_start reads GH_REPO, owner/name, and PR, the pull request's number: where PR is empty,
-# as on another event than pull_request, it warns and exits 0. It then traps errors, so that a
-# check runs under set -euo pipefail and never fails the job: an error ends it in one warning,
-# `NAME could not check #PR: REASON`, and the status 0.
+# report_start reads GH_REPO, owner/name, PR, the pull request's number, and COMMENT, true where
+# omitted. Where PR is empty, as on another event than pull_request, it warns and exits 0. It then
+# traps errors, so that a check runs under set -euo pipefail and never fails the job: an error ends
+# it in one warning, `NAME could not check #PR: REASON`, and the status 0.
 #
 # TITLE is a line of text, URL the rule's section of the skill, and FIX how to fix a finding, in
 # Markdown. MESSAGE says where and what is wrong, quoting it. FILE is a path from the repository's
@@ -22,6 +22,10 @@
 #
 # - writes the report to $GITHUB_STEP_SUMMARY. It opens with "This check warns and does not block
 #   the merge", then gives each rule with findings a section: its title, link, findings and fix;
+# - where COMMENT is true, keeps one comment on the pull request to the report, the one that
+#   <!-- zadykian/actions:NAME --> starts: it creates or edits it. A clean check edits it to say
+#   that no findings remain, and never creates one. A report over GitHub's limit is cut, with a
+#   note. A refusal, as of a fork's read-only token, is one warning;
 # - prints a ::warning for each of the first findings, 10 at most, as GitHub shows 10 a step. The
 #   last says how many more the summary holds.
 #
@@ -141,12 +145,41 @@ report_text() {
     done
 }
 
-# report_finish reports the findings, and exits 0.
+# report_comment keeps the action's comment on the pull request to the report $1: it edits the one
+# that its marker starts, or creates one where $2, the count of findings, is not 0. It fails as gh
+# fails.
+report_comment() {
+    local marker="<!-- zadykian/actions:$report_name -->" ids id body run note
+    ids=$(gh api --paginate "repos/$GH_REPO/issues/$PR/comments?per_page=100" \
+        --jq ".[] | select(.body | startswith(\"$marker\")) | .id") || return
+    id=${ids%%$'\n'*}
+    [ -n "$id" ] || [ "$2" != 0 ] || return 0
+    # GitHub takes 65536 characters at most.
+    run=${GITHUB_SERVER_URL-}/${GITHUB_REPOSITORY-}/actions/runs/${GITHUB_RUN_ID-}
+    note=$'\n\n'"_The report is cut here: [the job summary]($run) holds all of it._"
+    body=$(jq -n --arg body "$marker"$'\n'"$1" --arg note "$note" '{body: (if ($body | length)
+        > 60000 then ($body[:60000] | sub("\n[^\n]*$"; "")) + $note else $body end)}') || return
+    if [ -n "$id" ]; then
+        gh api -X PATCH "repos/$GH_REPO/issues/comments/$id" --input - <<<"$body" >/dev/null
+    else
+        gh api -X POST "repos/$GH_REPO/issues/$PR/comments" --input - <<<"$body" >/dev/null
+    fi
+}
+
+# report_finish reports the findings, and exits 0. A comment's refusal takes one of the 10
+# warnings.
 report_finish() {
-    local head report
+    local head report error limit=10
     head=$(gh api "repos/$GH_REPO/pulls/$PR" --jq .head.sha)
     report=$(report_text "${head:0:7}")
     printf '%s\n' "$report" >>"${GITHUB_STEP_SUMMARY:-/dev/stdout}"
-    report_annotate 10
+    if [ "${COMMENT:-true}" = true ] &&
+        ! error=$({ report_comment "$report" "${#report_messages[@]}" >/dev/null; } 2>&1); then
+        error=${error##*$'\n'}
+        error="could not comment on #$PR, so the job summary alone holds the report: ${error#gh: }"
+        echo "::warning::$report_name $(report_escape "$error")"
+        limit=9
+    fi
+    report_annotate "$limit"
     exit 0
 }
