@@ -28,11 +28,13 @@ config=$(jq -Rnr '[inputs | select(test("^\\s*(#|$)") | not)
 } <<<"$config"
 
 # The jq functions of a scan. terms gives each term of $index that the text . holds, once: its
-# tokens split at each character other than a letter or a digit. A test of the whole text first
-# skips most lines quickly. find gives a finding of each, a line of KEY, MESSAGE, FILE and LINE,
-# separated by tabs.
+# tokens split at each character other than a letter or a digit, then at each hump of camelCase,
+# as getHTTPResponse gives get, http and response. A test of the text first skips most lines.
+# find gives a finding of each, a line of KEY, MESSAGE, FILE and LINE, separated by tabs.
 defs='($index | keys | join("|")) as $any
 | def terms: select(test($any; "i"))
+    | gsub("(?<a>[a-z0-9])(?<b>[A-Z])"; "\(.a) \(.b)")
+    | gsub("(?<a>[A-Z])(?=[A-Z][a-z])"; "\(.a) ")
     | [ascii_downcase | splits("[^a-z0-9]+") | select($index[.])] | unique[];
   def code: gsub("\\s+"; " ") | sub("^ "; "") | sub(" $"; "")
     | if length > 120 then .[:119] + "…" else . end | "`\(.)`";

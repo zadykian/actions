@@ -25,7 +25,11 @@ matches() {
     warnings $(($# - 1))
 }
 
+matches StringHelper helper
 matches str_utils.py utils
+matches MiscStuff misc stuff
+matches HTTPHelper helper
+matches 'getHTTPResponse, XMLHttpHelpers and HTTP2Util' helpers util
 matches 'Etc. and SIMPLY' etc simply
 matches 'utilize, helpful and etcd'
 matches 'utils2, Thingy and miscount'
