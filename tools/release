@@ -1,7 +1,7 @@
 #!/bin/bash
 # Releases the tag $1, vMAJOR.MINOR.PATCH, as a GitHub Release of $GH_REPO, whose notes are the
-# headers of its commits. It refuses a tag of another form, and publishes nothing then. It runs in
-# a clone of the repository, and needs git and gh.
+# headers of its commits. It refuses a tag of another form, a lightweight one, and one off main,
+# and publishes nothing then. It runs in a clone of the repository, and needs git and gh.
 
 set -euo pipefail
 
@@ -14,9 +14,16 @@ refuse() {
 tag=${1-}
 [[ $tag =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] ||
     refuse "$tag is not a version tag, vMAJOR.MINOR.PATCH, as v1.2.3."
-git fetch --quiet --no-tags --force origin '+refs/tags/v*:refs/tags/v*'
+# origin's own tags and main: a checkout may fetch an annotated tag as a lightweight one.
+git fetch --quiet --no-tags --force origin '+refs/heads/main:refs/remotes/origin/main' \
+    '+refs/tags/v*:refs/tags/v*'
 git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || refuse "origin has no tag $tag."
+[ "$(git cat-file -t "refs/tags/$tag")" = tag ] ||
+    refuse "$tag is a lightweight tag: delete it, then push an annotated one," \
+        "git tag -a $tag -m $tag."
 commit=$(git rev-parse "refs/tags/$tag^{commit}")
+git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
+    refuse "$tag tags ${commit:0:7}, which is not on main."
 log=$(git log --reverse --format='- %s (%h)' "$commit")
 
 notes=$(mktemp)

@@ -36,6 +36,19 @@ for version in v1.2 1.2.3 v01.2.3 v1.2.3-rc.1; do
 done
 refuses v1.0.0 'origin has no tag v1.0.0.'
 
+setup refuses-a-lightweight-tag
+repository
+git tag v1.0.0
+git push -q origin v1.0.0
+refuses v1.0.0 'v1.0.0 is a lightweight tag'
+
+setup refuses-a-tag-off-main
+repository
+git commit -q --allow-empty -m 'feat: try'
+git push -q origin HEAD:try
+tag v1.0.0
+refuses v1.0.0 "v1.0.0 tags $(git rev-parse --short=7 HEAD), which is not on main."
+
 setup releases-the-first-tag
 repository
 commit 'fix: mend it'
