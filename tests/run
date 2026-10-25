@@ -8,6 +8,7 @@
 #   setup CASE                    starts the case CASE, in $FAKE, a directory of its own
 #   answer PATH JSON [JSON...]    gh api PATH answers JSON, and with --paginate a page an argument
 #   pull [JSON]                   prints pull request #1 as setup answers it, JSON's fields over it
+#   refuse METHOD PATH [STATUS]   gh api -X METHOD PATH fails with HTTP STATUS, 403 where omitted
 #   check NAME [VAR=VALUE...]     runs NAME/check.sh as its action.yml step does, with the VARs;
 #                                 the case fails where it exits non-zero, as that fails the job
 #   step [VAR=VALUE...] FILE [ARG...]  runs the script FILE with the ARGs and the VARs
@@ -15,6 +16,8 @@
 #   warns TEXT                    one of its ::warning lines holds TEXT
 #   warnings N                    it printed N ::warning lines
 #   summarizes TEXT               the job summary holds TEXT
+#   wrote METHOD PATH [TEXT]      gh api wrote METHOD PATH, with a body whose text holds TEXT
+#   writes N                      gh api made N writes in the case
 #   fail REASON                   fails the case, which goes on
 #
 # setup sets the environment of a pull request event: GH_REPO=o/r, PR=1, COMMENT=true, and
@@ -51,6 +54,8 @@ setup() {
     export GITHUB_STEP_SUMMARY="$FAKE/summary" RUNNER_TEMP="$FAKE/temp"
     export GITHUB_SERVER_URL=https://github.com GITHUB_REPOSITORY=o/r GITHUB_RUN_ID=7
     : >"$GITHUB_STEP_SUMMARY"
+    : >"$FAKE/writes"
+    : >"$FAKE/refusals"
     answer repos/o/r/pulls/1 "$(pull)"
     answer repos/o/r/issues/1/comments '[]'
 }
@@ -71,6 +76,25 @@ pull() {
 summarizes() {
     [[ $(cat "$GITHUB_STEP_SUMMARY") == *"$1"* ]] ||
         fail "no summary '$1': $(cat "$GITHUB_STEP_SUMMARY")"
+}
+
+# refuse has gh api refuse the method $1 on the path $2, with the HTTP status $3, 403 by default.
+refuse() {
+    printf '%s %s %s\n' "$1" "$2" "${3:-403}" >>"$FAKE/refusals"
+}
+
+# wrote checks that gh api wrote the method $1 on the path $2, with a body whose text holds $3.
+wrote() {
+    jq -e -s --arg method "$1" --arg path "$2" --arg text "${3-}" 'any(.[]; .method == $method and
+        .path == $path and ((.input.body // "") | contains($text)))' "$FAKE/writes" >/dev/null ||
+        fail "no $1 $2 holding '${3-}': $(cat "$FAKE/writes")"
+}
+
+# writes checks that gh api made $1 writes in the case.
+writes() {
+    local count
+    count=$(($(wc -l <"$FAKE/writes")))
+    [ "$count" = "$1" ] || fail "$count writes, not $1: $(cat "$FAKE/writes")"
 }
 
 # fail reports that the case fails, for the reason $*.

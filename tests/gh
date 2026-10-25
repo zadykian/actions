@@ -3,7 +3,12 @@
 # [--paginate] [--jq FILTER]` prints what the case answers for PATH, with tests/run's answer: the
 # first page, or with --paginate each page, through --jq's filter as gh applies it. PATH drops its
 # per_page and page parameters, and a GET's fields join its query. A PATH with no answer fails as
-# GitHub's 404 does. $FAKE/calls logs every call.
+# GitHub's 404 does.
+#
+# A write, of any other method, answers {}: `gh api -X METHOD PATH [-f KEY=VALUE]... [--input
+# FILE]` logs METHOD, PATH and the body, the fields or the JSON of FILE, a line of JSON in
+# $FAKE/writes. A call that tests/run's refuse names fails as GitHub's refusal does, and writes
+# nothing. $FAKE/calls logs every call.
 
 set -euo pipefail
 
@@ -13,12 +18,14 @@ if [ "${1-}" != api ]; then
     exit 1
 fi
 shift
-method='' path='' filter=. paginate=false fields=()
+method='' path='' filter=. paginate=false input='' fields=() args=()
 while [ $# -gt 0 ]; do
     case $1 in
     -X | --method) method=${2^^} && shift ;;
     -f | --raw-field | -F | --field) fields+=("$2") && shift ;;
     -q | --jq) filter=$2 && shift ;;
+    --input) input=$2 && shift ;;
+    --silent) exec >/dev/null ;;
     -H | --header) shift ;;
     --paginate) paginate=true ;;
     -*) echo "gh: the fake knows no $1" >&2 && exit 1 ;;
@@ -26,20 +33,38 @@ while [ $# -gt 0 ]; do
     esac
     shift
 done
-if [ "${method:-GET}" != GET ]; then
-    echo "gh: the fake makes no $method" >&2
-    exit 1
+# As gh does, a call with fields or an input is a POST, unless -X says otherwise.
+if [ -z "$method" ] && { [ ${#fields[@]} != 0 ] || [ -n "$input" ]; }; then
+    method=POST
 fi
+method=${method:-GET}
 
 key=${path%%\?*} sep='?'
 query=${path#"$key"}
 IFS='&' read -ra params <<<"${query#\?}"
-for param in "${params[@]}" "${fields[@]}"; do
+[ "$method" != GET ] || params+=("${fields[@]}")
+for param in "${params[@]}"; do
     case $param in
     per_page=* | page=*) ;;
     *) key+=$sep$param sep='&' ;;
     esac
 done
+status=$(awk -v call="$method $key" '$1 " " $2 == call { print $3 }' "$FAKE/refusals")
+case $status in
+'') ;;
+404) echo 'gh: Not Found (HTTP 404)' >&2 && exit 1 ;;
+*) echo "gh: Resource not accessible by integration (HTTP $status)" >&2 && exit 1 ;;
+esac
+if [ "$method" != GET ]; then
+    for field in "${fields[@]}"; do
+        args+=(--arg "${field%%=*}" "${field#*=}")
+    done
+    body=$(if [ -n "$input" ]; then cat -- "$input"; else jq -n '$ARGS.named' "${args[@]}"; fi)
+    jq -cn --arg method "$method" --arg path "$key" --argjson input "$body" \
+        '{method: $method, path: $path, input: $input}' >>"$FAKE/writes"
+    echo '{}'
+    exit 0
+fi
 file=$FAKE/api/${key//\//%}
 if [ ! -f "$file" ]; then
     echo "gh: Not Found (HTTP 404): the case answers no $key" >&2
