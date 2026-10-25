@@ -13,7 +13,10 @@ The skills in [zadykian/skills](https://github.com/zadykian/skills) teach the ag
 
 | Action | What it does |
 | --- | --- |
-| [`ff`](ff/README.md) | Lands a pull request by fast-forward on a `/ff` comment |
+| [`atomic-commits`](atomic-commits) | Warns on commits, and a PR's size or title, off the skill |
+| [`pr-description`](pr-description) | Warns on a description off Problem, Changes, Stack |
+| [`banned-terms`](banned-terms) | Warns on vague names and fillers that a PR adds |
+| [`ff`](ff) | Lands a pull request by fast-forward on a `/ff` comment |
 
 ## Usage
 
@@ -36,7 +39,9 @@ jobs:
       contents: read
       pull-requests: write
     steps:
-      - uses: zadykian/actions/NAME@SHA # vX.Y.Z
+      - uses: zadykian/actions/atomic-commits@SHA # vX.Y.Z
+      - uses: zadykian/actions/pr-description@SHA # vX.Y.Z
+      - uses: zadykian/actions/banned-terms@SHA # vX.Y.Z
 ```
 
 [Versions](#versions) says which hash to pin. The `edited` type checks the title and the
