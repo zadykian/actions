@@ -38,6 +38,7 @@ description.
 | --- | --- |
 | `empty` | The description is empty, or blank |
 | `problem` | `## Problem` is missing, has text or a heading before it, or holds no prose |
+| `changes` | `## Changes` is missing, comes before Problem, or holds no bullet |
 
 ## Inputs
 

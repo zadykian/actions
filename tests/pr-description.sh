@@ -64,3 +64,25 @@ warnings 1
 describe warns-on-code-alone $'## Problem\n\n~~~\n# log\n~~~~'"$changes"
 warns "\`## Problem\`, line 1 of the description, holds no prose."
 warnings 1
+
+problem=$'## Problem\n\nA check is missing.'
+
+describe passes-bullets-of-each-marker "$problem"$'\n\n## Changes\n\n* A check.\n+ Its cases.'
+warnings 0
+
+describe warns-on-no-changes "$problem"
+warns "The description has no \`## Changes\` heading."
+warnings 1
+
+describe warns-on-changes-before-problem "${changes:2}"$'\n\n'"$problem"
+warns "\`## Changes\`, line 1 of the description, comes before \`## Problem\`, line 5."
+
+describe warns-on-changes-without-bullets "$problem"$'\n\n## Changes\n\nAdds it.\n\n- - -'
+warns "\`## Changes\`, line 5 of the description, holds no bullet: it opens \`Adds it.\`"
+warnings 1
+
+template=$'## Problem\n\n<!-- What is wrong? -->\n\n## Changes\n\n<!--\n- A change.\n-->'
+describe warns-on-a-template-left-alone "$template"
+warns "\`## Problem\`, line 1 of the description, holds no prose."
+warns "\`## Changes\`, line 5 of the description, holds no bullet."
+warnings 2

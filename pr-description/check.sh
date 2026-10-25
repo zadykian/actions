@@ -148,4 +148,26 @@ else
     [ -z "$before" ] || finding problem "$at is not its first section: $before comes before it."
     (($(words "$(section "$p")"))) || finding problem "$at holds no prose."
 fi
+
+rule changes 'The description has no Changes section of bullets after Problem' "$url" "Follow \
+\`## Problem\` with \`## Changes\`: a bullet for each high-level change, said by behavior, not \
+by file.
+
+$(template "$changes_md")"
+c=$(first Changes)
+if [ "$c" = -1 ]; then
+    finding changes "The description has no \`## Changes\` heading."
+else
+    at="\`## Changes\`, line $((h_starts[c] + 1)) of the description,"
+    [ "$p" = -1 ] || [ "$c" -gt "$p" ] ||
+        finding changes "$at comes before \`## Problem\`, line $((h_starts[p] + 1))."
+    # A bullet holds text, which a thematic break, such as - - -, lacks.
+    bullet='^[[:blank:]]*[-*+][[:blank:]]+[^[:blank:]]' content='[^-*[:blank:]]'
+    bullets=0 opening=''
+    while IFS= read -r line; do
+        [ -n "$opening" ] || [ -z "${line//[[:blank:]]/}" ] || opening=$(quote "$line")
+        [[ ! $line =~ $bullet || ! $line =~ $content ]] || bullets=$((bullets + 1))
+    done <<<"$(section "$c")"
+    [ "$bullets" != 0 ] || finding changes "$at holds no bullet${opening:+: it opens $opening}."
+fi
 report_finish
