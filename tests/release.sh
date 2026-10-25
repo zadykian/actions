@@ -9,9 +9,11 @@ repository() {
     commit 'chore: start'
 }
 
-# commit pushes to main a commit of the header $1.
+# commit pushes to main a commit of the header $1, and of the body $2 where given.
 commit() {
-    git commit -q --allow-empty -m "$1"
+    local message=(-m "$1")
+    [ -z "${2-}" ] || message+=(-m "$2")
+    git commit -q --allow-empty "${message[@]}"
     git push -q origin HEAD:main
 }
 
@@ -51,11 +53,32 @@ refuses v1.0.0 "v1.0.0 tags $(git rev-parse --short=7 HEAD), which is not on mai
 
 setup releases-the-first-tag
 repository
-commit 'fix: mend it'
+commit 'feat(x)!: drop the old input'
+commit 'refactor: move y' 'BREAKING CHANGE: y moved to z.'
+commit 'feat(x): add z'
+commit 'fix: mend w'
+commit 'docs: describe v'
 tag v2.5.0
 step "$ROOT/tools/release" v2.5.0
 exits 0
 grep -qF 'release create v2.5.0 --verify-tag --title v2.5.0 --notes-file' "$FAKE/calls" ||
     fail "did not release v2.5.0: $(cat "$FAKE/out")"
-[ "$(cat "$FAKE/notes")" = "- chore: start ($(git rev-parse --short HEAD~))
-- fix: mend it ($(git rev-parse --short HEAD))" ] || fail "the notes: $(cat "$FAKE/notes")"
+grep -qxF -- "- fix: mend w ($(git rev-parse --short HEAD~))" "$FAKE/notes" ||
+    fail "no fix: mend w with its SHA: $(cat "$FAKE/notes")"
+[ "$(sed -E 's/ \([0-9a-f]+\)$//' "$FAKE/notes")" = '## Breaking changes
+
+- feat(x)!: drop the old input
+- refactor: move y
+
+## Features
+
+- feat(x): add z
+
+## Fixes
+
+- fix: mend w
+
+## Other changes
+
+- chore: start
+- docs: describe v' ] || fail "the notes: $(cat "$FAKE/notes")"

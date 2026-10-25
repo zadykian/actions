@@ -1,7 +1,8 @@
 #!/bin/bash
 # Releases the tag $1, vMAJOR.MINOR.PATCH, as a GitHub Release of $GH_REPO, whose notes are the
-# headers of its commits. It refuses a tag of another form, a lightweight one, and one off main,
-# and publishes nothing then. It runs in a clone of the repository, and needs git and gh.
+# headers of its commits, grouped as breaking changes, features, fixes and the rest. It refuses a
+# tag of another form, a lightweight one, and one off main, and publishes nothing then. It runs in
+# a clone of the repository, and needs git and gh.
 
 set -euo pipefail
 
@@ -24,9 +25,36 @@ git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null || refuse "origin has
 commit=$(git rev-parse "refs/tags/$tag^{commit}")
 git merge-base --is-ancestor "$commit" refs/remotes/origin/main ||
     refuse "$tag tags ${commit:0:7}, which is not on main."
-log=$(git log --reverse --format='- %s (%h)' "$commit")
+# section prints the notes' section titled $1, of the lines after it, where there are any.
+section() {
+    [ $# = 1 ] || printf '## %s\n\n%s\n\n' "$1" "$(printf '%s\n' "${@:2}")"
+}
+
+# Each commit's line, under its kind: a breaking change, by its header's ! or its footer, a
+# feature, a fix, or another change.
+breaking=() features=() fixes=() others=()
+bang='^[a-z]+(\([^)]*\))?!: ' feat='^feat(\([^)]*\))?: ' fix='^fix(\([^)]*\))?: '
+footer=$'(^|\n)BREAKING[ -]CHANGE: '
+log=$(git log --reverse --format='%h %s' "$commit")
+while read -r sha header; do
+    line="- $header ($sha)"
+    if [[ $header =~ $bang ]] || [[ $(git log -1 --format=%b "$sha") =~ $footer ]]; then
+        breaking+=("$line")
+    elif [[ $header =~ $feat ]]; then
+        features+=("$line")
+    elif [[ $header =~ $fix ]]; then
+        fixes+=("$line")
+    else
+        others+=("$line")
+    fi
+done <<<"$log"
 
 notes=$(mktemp)
 trap 'rm -f "$notes"' EXIT
-printf '%s\n' "$log" | tee "$notes"
+{
+    section 'Breaking changes' "${breaking[@]}"
+    section Features "${features[@]}"
+    section Fixes "${fixes[@]}"
+    section 'Other changes' "${others[@]}"
+} | tee "$notes"
 gh release create "$tag" --verify-tag --title "$tag" --notes-file "$notes"
