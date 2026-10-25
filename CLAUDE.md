@@ -74,11 +74,9 @@ The checks alone:
 
 ## How changes land
 
-- Pull requests land on `main` by fast-forward only: never run `gh pr merge`, and never push to
-  `main`. A comment `/ff` lands one, through `.github/workflows/fast-forward.yml`, as `/flow:land`
-  does.
-- The maintainer pushes a pull request that changes `.github/workflows` by hand,
-  `git push origin SHA:main`, as the workflow's token may not push such a change.
+[land](https://github.com/zadykian/skills/blob/main/skills/land/SKILL.md) lands each pull request
+with a `/ff` comment, which `.github/workflows/fast-forward.yml` acts on. The maintainer pushes one
+that changes `.github/workflows` by hand, as the workflow's token may not push it.
 
 ## Releases
 
