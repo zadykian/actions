@@ -1,0 +1,34 @@
+name: Atomic commits
+description: >-
+  Warns on a pull request whose commits break the rules of the atomic-commits skill. It never
+  blocks the merge.
+author: zadykian
+branding:
+  icon: git-commit
+  color: blue
+
+inputs:
+  token:
+    description: The token that reads the pull request, and comments on it.
+    default: ${{ github.token }}
+  comment:
+    description: true keeps one comment of the report on the pull request, false none.
+    default: 'true'
+  types:
+    description: The types that a commit header may take, separated by spaces.
+    default: feat fix refactor perf test docs style build ci chore revert
+
+# It reads the pull request through GitHub's API alone, and checks out nothing, so that it runs
+# none of the pull request's code.
+runs:
+  using: composite
+  steps:
+    - name: Check the commits
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        GH_REPO: ${{ github.repository }}
+        PR: ${{ github.event.pull_request.number }}
+        COMMENT: ${{ inputs.comment }}
+        TYPES: ${{ inputs.types }}
+      run: '"$GITHUB_ACTION_PATH/check.sh"'
