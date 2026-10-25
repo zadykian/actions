@@ -1,0 +1,32 @@
+name: rules
+
+# This repository's own checks, run on each of its pull requests as the pull request has them, so
+# a change to a check is checked by the check it makes. They warn and never block, so no ruleset
+# requires them. banned-terms passes over the files that list the terms on purpose.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    # zizmor asks for $/ over ./, but actionlint 1.7.12, its latest, refuses $/ as a uses ref. So
+    # the checkout gives the job the checks' code, and each ./ step ignores the audit.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./atomic-commits # zizmor: ignore[self-repository]
+      - uses: ./pr-description # zizmor: ignore[self-repository]
+      - uses: ./banned-terms # zizmor: ignore[self-repository]
+        with:
+          exclude: |
+            banned-terms/README.md
+            banned-terms/terms.txt
+            tests/banned-terms.sh
