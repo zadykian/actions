@@ -1,76 +1,22 @@
 # actions
 
-Opinionated rules for agentic development, as GitHub Actions of two kinds:
-
-- The checks warn on a pull request and never block. Each annotates the pull request, writes a job
-  summary, and keeps one comment of its own up to date, and its job passes.
-- `ff` lands a pull request by fast-forward on a `/ff` comment. Where it refuses, it fails, with a
-  comment that says why.
-
-The skills in [zadykian/skills](https://github.com/zadykian/skills) teach the agent the same rules.
-
-## The actions
-
-| Action | What it does |
-| --- | --- |
-| [`atomic-commits`](atomic-commits) | Warns on commits, and a PR's size or title, off the skill |
-| [`pr-description`](pr-description) | Warns on a description off Problem, Changes, Stack |
-| [`banned-terms`](banned-terms) | Warns on vague names and fillers that a PR adds |
-| [`ff`](ff) | Lands a pull request by fast-forward on a `/ff` comment |
-
-## Usage
-
-The checks run in one workflow, `.github/workflows/rules.yml`, with a step for each:
-
-```yaml
-name: rules
-
-on:
-  pull_request:
-    types: [opened, edited, reopened, synchronize]
-
-permissions: {}
-
-jobs:
-  rules:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: write
-    steps:
-      - uses: zadykian/actions/atomic-commits@SHA # vX.Y.Z
-      - uses: zadykian/actions/pr-description@SHA # vX.Y.Z
-      - uses: zadykian/actions/banned-terms@SHA # vX.Y.Z
-```
-
-[Versions](#versions) says which hash to pin. The `edited` type checks the title and the
-description again once they change. Each check reads the pull request through GitHub's API
-alone, so the job checks out nothing and runs none of its code. `pull-requests: write` lets it
-comment.
-
-`ff` runs in a workflow of its own, on a comment: [its README](ff/README.md#usage) gives it, with
-the permissions it needs.
-
-Each action's README, in its directory, says what it does. A check's README also gives its inputs
-and the rules it links to. No input changes a rule: each check holds the skill's own.
+The actions have moved to [zadykian/toolkit](https://github.com/zadykian/toolkit), under
+`actions/NAME`. From v4.0.0 on, they are released with the skills at one version, and each
+action's README there says how to use it.
 
 ## Versions
 
-One version covers every action: a tag `vX.Y.Z` on `main`, which no file repeats. Pin an action
-by the full hash of the tag's commit, `git rev-parse vX.Y.Z^{commit}`, with the tag in the
-comment: `zadykian/actions/NAME@SHA # vX.Y.Z`. Dependabot's `github-actions` updates move the
-hash and the comment to each new tag.
+A workflow that pins `zadykian/actions/NAME@SHA` keeps working, as this repository keeps its code
+and its tags, v1.0.0 and v2.0.0. To get the actions' changes from now on:
 
-The Conventional Commits since the previous tag set the next version:
+- pin `zadykian/toolkit/actions/NAME@SHA # vX.Y.Z` instead, and the skills' marketplace to the
+  same tag. `tools/pin vX.Y.Z DIR`, run from a clone of the toolkit, moves both pins;
+- have the `github-actions` update in `.github/dependabot.yml` ignore `zadykian/toolkit*`, as
+  Dependabot would move the actions' hash but not the marketplace's ref.
 
-- a breaking change, a `!` in the header or a `BREAKING CHANGE:` footer, bumps the major, or the
-  minor before 1.0;
-- a `feat` bumps the minor, and any other commit the patch.
+The toolkit's README says how, in [Pin a release][pin].
 
-Each tag gets a GitHub Release, whose notes list those commits: breaking changes, features, fixes
-and the rest. A released tag is never moved or deleted, and no major tag, such as `v1`, follows
-the releases.
+[pin]: https://github.com/zadykian/toolkit#pin-a-release
 
 ## License
 
